@@ -168,7 +168,7 @@ struct ext2_inode {
 /* #define EXT2_BOOT_LOADER_INO  5 */ /* Boot loader inode */
 /* #define EXT2_UNDEL_DIR_INO    6 */ /* Undelete directory inode */
 /* #define EXT2_RESIZE_INO       7 */ /* Reserved group descriptors inode */
-/* #define EXT2_JOURNAL_INO      8 / /* Journal inode */
+/* #define EXT2_JOURNAL_INO      8 */ /* Journal inode */
 /* #define EXT2_EXCLUDE_INO      9 */ /* The "exclude" inode, for snapshots */
 /* #define EXT4_REPLICA_INO     10 */ /* Used by non-upstream feature */
 

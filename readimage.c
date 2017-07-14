@@ -8,6 +8,7 @@
 #include "ext2.h"
 
 unsigned char *disk;
+char file_type(unsigned mode);
 
 
 int main(int argc, char **argv) {
@@ -89,15 +90,94 @@ int main(int argc, char **argv) {
     printf("[2] type: %c size: %d links: %d blocks: %d\n", 
         filetype, root->i_size, root->i_links_count, root->i_blocks);
     printf("[2] Blocks: ");
-    unsigned int *blocks = &(root->i_blocks);
+    unsigned int *block = root->i_block;
     for (int i=0; i < 15; i++) {
-        if (blocks[i]) {
-            printf(" %d", blocks[i]);
+        if (block[i]) {
+            printf(" %d", block[i]);
         }
     }
     printf("\n");
 
+    inode_bitmap = (unsigned int *) (disk + gd->bg_inode_bitmap * 1024);
+    struct ext2_inode *current_inode;
+    for (int i=EXT2_GOOD_OLD_FIRST_INO+1; i <= 32; i++) {
+        mask = 1 << (i-1);
+        if (mask & *inode_bitmap) {
+            current_inode = &(inode_table[i-1]);
+            printf("[%d] type: %c size: %d links: %d blocks: %d\n", i,  
+                file_type(current_inode->i_mode), current_inode->i_size, 
+                current_inode->i_links_count, current_inode->i_blocks);
+            printf("[%d] Blocks: ", i);
+            unsigned int *block = current_inode->i_block;
+            for (int j=0; j < 15; j++) {
+                if (block[j]) {
+                    printf(" %d", block[j]);
+                }
+            }
+            printf("\n");
+        }
+    }
 
-    
+    printf("\nDirectory Blocks:\n");
+    int current_block_size_used;
+    struct ext2_dir_entry_2 *current_dir_entry;
+    block = root->i_block;
+    for (int i=0; i < 15; i++) {
+        if (block[i]) {
+            printf("   DIR BLOCK NUM: %d (for inode %d) \n", block[i], 2);
+            current_block_size_used = 0;
+            current_dir_entry = (struct ext2_dir_entry_2 *) (disk + block[i] * 1024);
+            while (current_block_size_used < 1024) {
+                current_block_size_used += current_dir_entry->rec_len;
+                printf("Inode: %d rec_len: %d name_len: %d name=%.*s\n", 
+                    current_dir_entry->inode, current_dir_entry->rec_len, 
+                    current_dir_entry->name_len, current_dir_entry->name_len,
+                     current_dir_entry->name);
+                current_dir_entry = (struct ext2_dir_entry_2 *) 
+                    (disk + block[i] * 1024 + current_block_size_used);
+            }
+        }
+    }
+
+    for (int i=EXT2_GOOD_OLD_FIRST_INO+1; i <= 32; i++) {
+        mask = 1 << (i-1);
+        if (mask & *inode_bitmap) {
+            current_inode = &(inode_table[i-1]);
+            if (file_type(current_inode->i_mode) == 'd') {
+                block = current_inode->i_block;
+                for (int j=0; j < 15; j++) {
+                    if (block[j]) {
+                        printf("   DIR BLOCK NUM: %d (for inode %d) \n", block[j], i);
+                        current_block_size_used = 0;
+                        current_dir_entry = (struct ext2_dir_entry_2 *) (disk + block[j] * 1024);
+                        while (current_block_size_used < 1024) {
+                            current_block_size_used += current_dir_entry->rec_len;
+                            printf("Inode: %d rec_len: %d name_len: %d name=%.*s\n", 
+                                current_dir_entry->inode, current_dir_entry->rec_len, 
+                                current_dir_entry->name_len, current_dir_entry->name_len,
+                                 current_dir_entry->name);
+                            current_dir_entry = (struct ext2_dir_entry_2 *) 
+                                (disk + block[j] * 1024 + current_block_size_used);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
     return 0;
+}
+
+
+char file_type(unsigned mode) {
+    char filetype;
+    if (mode & EXT2_S_IFDIR) {
+        filetype = 'd';
+    } else if (mode & EXT2_S_IFREG) {
+        filetype = 'f';
+    } else {
+        filetype = 'l';
+    }
+    return filetype;
 }
