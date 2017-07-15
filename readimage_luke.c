@@ -168,25 +168,6 @@ int main(int argc, char **argv) {
 
     unsigned int *part = (unsigned int *) (disk + 36*1024);
 
-    printf("%u %u %u %u %u\n", part[0], part[1], part[2], part[11], part[12]);
-
-    print_out(62);
-    print_out(63); 
-    print_out(64);
-    print_out(83);
-    print_out(84);
-    print_out(85);
-    print_out(86);
-    print_out(87);
-    print_out(88);
-    print_out(89);
-    print_out(90);
-    print_out(91);
-    print_out(92);
-    print_out(71);
-    print_out(72);
-
-    printf("%d\n", *((char *) ((disk + 71 * 1024) + 128)));
     return 0;
 }
 
