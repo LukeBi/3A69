@@ -5,7 +5,10 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <string.h>
+#include <errno.h>
 #include "ext2.h"
+
 
 unsigned char *disk;
 
@@ -17,36 +20,105 @@ void print_directory_block(struct ext2_inode *inode_table, int inum, unsigned ch
 void print_directory_blocks(struct ext2_inode *inode_table, unsigned char* inode_bitmap, int size, unsigned char* disk);
 void print_group(struct ext2_super_block *sb, struct ext2_group_desc *gd);
 void walk_inode(int depth, int block, unsigned char* disk);
+void print_directory_entry(struct ext2_dir_entry_2 * dir);
+void print_directory_entries(struct ext2_inode *inode, unsigned char* disk, char flag);
+void print_directory_block_entries(unsigned char* disk, char flag, unsigned int block);
+int get_next_token(char * token, char * path, int index);
 
 int main(int argc, char **argv) {
-
-    if(argc != 2) {
-        fprintf(stderr, "Usage: readimg <image file name>\n");
-        exit(1);
+  char * filepath;
+  char flag = 0;
+  if(argc != 3 && argc != 4) {
+    fprintf(stderr, "Usage: ext2_ls <image file name> [-a] <absolute file path>\n");
+    exit(1);
+  }
+  if(argc == 4){
+    if (strcmp(argv[2], "-a")){
+      fprintf(stderr, "Usage: ext2_ls <image file name> [-a] <absolute file path>\n");
+      exit(1);
     }
-    int fd = open(argv[1], O_RDWR);
+    filepath = argv[3];
+    flag = 1;
+  }else{
+    filepath = argv[2];
+  }
+  int fd = open(argv[1], O_RDWR);
 
-    disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if(disk == MAP_FAILED) {
-	perror("mmap");
-	exit(1);
+  disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  if(disk == MAP_FAILED) {
+    perror("mmap");
+    exit(1);
+  }
+
+  struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
+  struct ext2_group_desc *gd = (struct ext2_group_desc *)(disk + 2*EXT2_BLOCK_SIZE);
+  struct ext2_inode *inode_table = (struct ext2_inode *)(disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
+  unsigned char * block_bitmap = disk + (gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
+  unsigned char *  inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+  
+  int path_index = 0;
+  char token[EXT2_NAME_LEN];
+  path_index = get_next_token(token, filepath, path_index);
+  if(path_index == -1){
+    printf("No such file or directory\n");
+    return ENOENT;
+  }
+  
+  struct ext2_inode *inode = &(inode_table[EXT2_ROOT_INO-1]);
+  print_directory_entries(inode, disk, flag);
+  return 0;
+}
+
+int get_next_token(char * token, char * path, int index){
+  if(index == 0){
+    if(path[index] == '/'){
+      token[0] = '/';
+      token[1] = '\0';
+      return 1;
+    }else{
+      return -1;
     }
+  }
+  int t_i = 0;
+  while(path[index] != '\0' || path[index] != '/'){
+    if(t_i == EXT2_NAME_LEN){
+      return -1;
+    }
+    token[t_i] = path[index];
+    ++t_i;
+    ++index;
+  }
+  token[t_i] = '\0';
+  return index;
+}
 
-    struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
-    struct ext2_group_desc *gd = (struct ext2_group_desc *)(disk + 2*EXT2_BLOCK_SIZE);
-    struct ext2_inode *inode_table = (struct ext2_inode *)(disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
-    print_group(sb, gd);
-    unsigned char * block_bitmap = disk + (gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
-    unsigned char *  inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
-    printf("Block bitmap: ");
-    print_bitmap(block_bitmap, sb->s_blocks_count / 8);
-    printf("Inode bitmap: ");
-    print_bitmap(inode_bitmap, sb->s_inodes_count / 8);
-    printf("\n");
-    print_inodes(inode_table, inode_bitmap , sb->s_inodes_count, disk);
-    print_directory_blocks(inode_table, inode_bitmap, sb->s_inodes_count, disk);
-    
-    return 0;
+void print_directory_entries(struct ext2_inode *inode, unsigned char* disk, char flag){
+  unsigned int bptr = inode->i_block[0];
+  /**
+   * IMPLEMENT NODE WALK HERE!
+   **/
+  print_directory_block_entries(disk, flag, bptr);
+}
+
+void print_directory_block_entries(unsigned char* disk, char flag, unsigned int block){
+  
+  char * dirptr = (char *)(disk + block * EXT2_BLOCK_SIZE);
+  char * next_block = dirptr + EXT2_BLOCK_SIZE;
+  struct ext2_dir_entry_2 * dir = (struct ext2_dir_entry_2 *) dirptr;
+  
+  while(dirptr != next_block){
+    // Print . and ..
+    if(flag){
+      
+    }
+    print_directory_entry(dir);
+    dirptr += dir->rec_len;
+    dir = (struct ext2_dir_entry_2 *) dirptr;
+  }
+}
+
+void print_directory_entry(struct ext2_dir_entry_2 * dir){
+  printf("%.*s\n", dir->name_len, dir->name);
 }
 
 void print_group(struct ext2_super_block *sb, struct ext2_group_desc *gd){
@@ -89,6 +161,9 @@ void print_directory_blocks(struct ext2_inode *inode_table, unsigned char* inode
 }
 void print_directory_block(struct ext2_inode *inode_table, int inum, unsigned char* disk){
   struct ext2_inode *inode = &(inode_table[inum-1]);
+  /**
+   * IMPLEMENT NODE WALK HERE!
+   **/
   unsigned int bptr = inode->i_block[0];
   printf("   DIR BLOCK NUM: %d (for inode %d)\n", bptr, inum);
   char * dirptr = (char *)(disk + bptr * EXT2_BLOCK_SIZE);
