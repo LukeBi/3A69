@@ -22,8 +22,8 @@ int main(int argc, char **argv) {
 
     disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if(disk == MAP_FAILED) {
-	   perror("mmap");
-	   exit(1);
+     perror("mmap");
+     exit(1);
     }
 
     struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
@@ -188,5 +188,4 @@ char file_type(unsigned mode) {
     }
     return filetype;
 }
-
 
