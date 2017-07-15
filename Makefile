@@ -29,5 +29,11 @@ imgtrc : ${IMAGES}
 trace/%.txt : %.img
 	xxd $<>trace/$*.txt
   
+clean: cleantrc cleandumps
+	rm -f *.exe
+
+cleandumps:
+	rm -f *.stackdump
+  
 cleantrc:
 	rm -f trace/*
