@@ -13,7 +13,8 @@ ext2_ls : ext2_ls.c
 
 ext2_cp :
 
-ext2_mkdir :
+ext2_mkdir : ext2_mkdir.c
+	gcc ${FLAGS} -o $@ $^
 
 ext2_ln :
 
