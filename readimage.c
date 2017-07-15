@@ -167,9 +167,9 @@ void print_inode(struct ext2_inode *inode_table, int inum, unsigned char* disk){
       printf("%d ", inode->i_block[i]);
     }
   }
-  for(int i = 0; i < 3; i++){
-    if(inode->i_block[i + 12]){
-      walk_inode(i, inode->i_block[i + 12], disk);
+  for(int i = 12; i < 16; i++){
+    if(inode->i_block[i]){
+      walk_inode(i - 12, inode->i_block[i], disk);
     }
   }
   
