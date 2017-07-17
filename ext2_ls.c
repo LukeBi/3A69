@@ -124,7 +124,7 @@ struct ext2_inode * find_inode(char * name, int size, struct ext2_inode *inode, 
           return inode_ptr;
         }
       }else{
-        inode_ptr = find_inode_walk(i - 12, inode->i_block[i + 12], name, size, inode_table, disk);
+        inode_ptr = find_inode_walk(i - 12, inode->i_block[i], name, size, inode_table, disk);
         if(inode_ptr){
           return inode_ptr;
         }
@@ -195,7 +195,7 @@ void print_directory_entries(struct ext2_inode *inode, unsigned char* disk, char
       if(i < 12){
         print_directory_block_entries(disk, flag, bptr);
       }else{
-        walk_directory_entries(i - 12, inode->i_block[i + 12], disk, flag);
+        walk_directory_entries(i - 12, inode->i_block[i], disk, flag);
       }
     }
   }

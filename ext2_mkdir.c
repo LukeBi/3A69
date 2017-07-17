@@ -217,7 +217,7 @@ struct ext2_inode * find_inode(char * name, int size, struct ext2_inode *inode, 
           return inode_ptr;
         }
       }else{
-        inode_ptr = find_inode_walk(i - 12, inode->i_block[i + 12], name, size, inode_table, disk);
+        inode_ptr = find_inode_walk(i - 12, inode->i_block[i], name, size, inode_table, disk);
         if(inode_ptr){
           return inode_ptr;
         }
@@ -324,7 +324,7 @@ int insert_entry(struct ext2_inode *inode, unsigned char* disk, struct ext2_dir_
           nextinode[j] = 0;
         }
       }
-      newblock = insert_entry_walk(i - 12, inode->i_block[i + 12], disk, insdir, bitmap, bitmapsize, newblocks);
+      newblock = insert_entry_walk(i - 12, inode->i_block[i], disk, insdir, bitmap, bitmapsize, newblocks);
       if(newblock){
         return newblock;
       }
