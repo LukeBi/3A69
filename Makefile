@@ -3,7 +3,7 @@ IMAGES = trace/deleteddirectory.txt trace/deletedfile.txt trace/emptydisk.txt tr
 ASSIGNMENTFILES = ext2_ls ext2_cp ext2_mkdir ext2_ln ext2_rm ext2_rm_bonus
 
 
-all : trace imgtrc readimage ${ASSIGNMENTFILES}
+all : trace imgtrc ${ASSIGNMENTFILES} readimage
 
 readimage : readimage.c
 	gcc ${FLAGS} -o $@ $^
