@@ -54,9 +54,8 @@ int main(int argc, char **argv) {
 	gd = (struct ext2_group_desc *)(disk + 2*EXT2_BLOCK_SIZE);
 	inode_table  = (struct ext2_inode *)(disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
 
-	// Q: if the local file is a link
 	// check local file path is a valid file path
-		// local file should exist and not be a directory
+	// local file should exist and not be a directory
 	struct stat st;
 	char base_name[EXT2_NAME_LEN];
 	char *disk_path;
@@ -66,18 +65,20 @@ int main(int argc, char **argv) {
 	} else if (st.st_mode & S_IFDIR) {
 		printf("%s is a directory\n", local_file_path);
 		return EISDIR;
-	} else {
-		if (argv[3][strlen(argv[3])-1] == '/') {
-			// add the new file name into the path if the disk path is directory path
-			// base name might modify local file path
-			strcpy(base_name, get_file_name(local_file_path));
-			disk_path = malloc(strlen(argv[3]) + strlen(base_name) + 1);
-			strcpy(disk_path, argv[3]);
-			strcat(disk_path, base_name);
-		} else {
-			disk_path = argv[3];
-		}
+	// } else {
+	// 	if (argv[3][strlen(argv[3])-1] == '/') {
+	// 		// add the new file name into the path if the disk path is directory path
+	// 		// base name might modify local file path
+	// 		strcpy(base_name, get_file_name(local_file_path));
+	// 		disk_path = malloc(strlen(argv[3]) + strlen(base_name) + 1);
+	// 		strcpy(disk_path, argv[3]);
+	// 		strcat(disk_path, base_name);
+	// 	} else {
+	// 		disk_path = argv[3];
+	// 	}
 	}
+
+	disk_path = argv[3];
 
 	// check if disk_path is valid
 		// should either be a valid direcotry path
@@ -96,7 +97,7 @@ int main(int argc, char **argv) {
 	// printf("%d\n", current_inode);
 	struct ext2_inode *last_inode = current_inode;
   	int size = strlen(disk_path);
-
+  	char appended = 0;
 	while (path_index < size) {
 		last_inode = current_inode;
 		path_index = get_next_token(token, disk_path, path_index);
@@ -105,6 +106,7 @@ int main(int argc, char **argv) {
 			printf("No such file or directory\n");
 			return ENOENT;
 		}
+
 		current_inode = find_inode(token, strlen(token), current_inode, inode_table, disk);
 		if (!current_inode) {
 			// file does not exist
@@ -113,6 +115,7 @@ int main(int argc, char **argv) {
 		  		return ENOENT;
 			} else {
 				// case: the disk path has a new file name
+				// edit disk_path here
 				printf("case: copy to new file path %s\n", disk_path);
 				break;
 			}
@@ -120,10 +123,32 @@ int main(int argc, char **argv) {
 
 		// assuming that directory path will always end up with '/'
 		if(current_inode->i_mode & EXT2_S_IFDIR){
+			if (appended) {
+				printf("Cannot overwrite a directory\n");
+				exit(1);
+			}
 			// the new file name exists as directory name
 			if (path_index == size) {
-		  		printf("cp: cannot overwrite directory %s\n", disk_path);
-		  		return EISDIR;
+				char *file_name = get_file_name(local_file_path);
+				disk_path = malloc(strlen(disk_path) + 1 + strlen(file_name) + 1);
+				strcpy(disk_path, argv[3]);
+				strcat(disk_path, "/");
+				strcat(disk_path, file_name);
+				free(file_name);
+				appended = 1;
+				size = strlen(disk_path);
+				printf("disk_path %s\n", disk_path);
+				printf("path index %d size %d\n", path_index, size);
+			} else if (path_index + 1 == size){
+				char *file_name = get_file_name(local_file_path);
+				disk_path = malloc(strlen(disk_path) + strlen(file_name) + 1);
+				strcpy(disk_path, argv[3]);
+				strcat(disk_path, file_name);
+				free(file_name);
+				appended++;
+				size = strlen(disk_path);
+				printf("path index %d size %d\n", path_index, size);
+				printf("disk_path %s\n", disk_path);
 			}
 			// normal directory entry during file path
 			path_index += 1;
@@ -139,6 +164,7 @@ int main(int argc, char **argv) {
 				// remove the current file at path
 				// call rm here
 				// remove_file(current_inode);
+				// no need to edit path
 				printf("case: overwritting file at path %s\n", disk_path);
 			}
 		}
@@ -155,6 +181,7 @@ int main(int argc, char **argv) {
 
 	return 0;
 }
+
 
 char *get_file_name(char *path) {
 	char *path_copy = malloc(strlen(path) + 1);
@@ -280,8 +307,6 @@ void create_file(int file_inode_number, char *local_file_path) {
 	if (sector_needed > 24) {
 		file_inode->i_block[12] = allocate_data_block();
 		single_indirect = (unsigned int *) (disk + file_inode->i_block[12] * EXT2_BLOCK_SIZE);
-		// init to all 0s
-		memset(single_indirect, 0, EXT2_BLOCK_SIZE);
 	}
 
 	// start copying file contents
@@ -482,96 +507,3 @@ struct ext2_inode * find_inode_walk(int depth, int block, char * name, int size,
  return inode_ptr; 
 }
 
-// struct ext2_dir_entry_2 *has_space(struct ext2_dir_entry_2 *entry, unsigned int size_needed, int depth) {
-// 	int size_used;
-// 	if (depth) {
-// 		struct ext2_dir_entry_2 *result;
-// 		unsigned int *block_pointer = (unsigned int *) entry;
-// 		for (int i=0; i < 15; i++) {
-// 			if (entry[i]) {
-// 				if ((result = has_space(entry，size_needed, depth-1))) {
-// 					return result;
-// 				}
-// 			} else {
-// 				entry[i] = allocate_data_block();
-// 				result = (struct ext2_dir_entry2 *) (disk + entry[i] * EXT2_BLOCK_SIZE);
-// 				result->rec_len = EXT2_BLOCK_SIZE;
-// 				return result;
-// 			}
-// 		}
-// 	} else {
-// 		size_used = entry->rec_len;
-// 		// find the last entry in the block
-//  		while (size_used < 1024) {
-// 			entry += entry->rec_len;
-// 			size_used += entry->rec_len;
-// 		}
-// 		// there is enough space to creathe the new entry in the block
-// 		if (entry->rec_len >= get_size_dir_entry(entry->name_len) + size_needed) {
-// 			return entry;
-// 		} else {
-// 			return NULL;
-// 		}
-// 	}
-// }
-
-
-	// file name
-	// char *base_name = get_file_name(disk_path);
-	// // get the size requied for the new directory entry
-	// int size_of_dir_entry = get_size_dir_entry(strlen(base_name));
-	// struct ext2_dir_entry_2 *last_dir_entry = NULL;
-	// for (int i=0; i < 15; i++) {
-	// 	if (dir_inode->i_block[i]) {
-	// 		if ((last_dir_entry = has_space(dir_inode->i_block[i], size_of_dir_entry, i - 12))) {
-	// 			break;
-	// 		}
-	// 	} else {
-	// 		if (i < 12) {
-	// 			dir_inode->i_block[i] = allocate_data_block();
-	// 			last_dir_entry = (struct ext2_dir_entry_2 *) (disk + dir_inode->i_block[i] * EXT2_BLOCK_SIZE);
-	// 			last_dir_entry->rec_len = EXT2_BLOCK_SIZE;
-	// 		} else {
-	// 			printf("Should not be here, need to create indirect for directory entrt\n");
-	// 			exit(1);
-	// 		}
-	// 		break;
-	// 	}
-	// }
-
-	// struct ext2_dir_entry2 *new_dir_entry;
-	// if (last_dir_entry->rec_len < EXT2_BLOCK_SIZE) {
-	// 	int size_of_last_dir = get_size_dir_entry(last_dir_entry);
-	// 	new_dir_entry = (struct *ext2_dir_entry_2) ((char *)last_dir_entry + size_of_last_dir);
-	// 	new_dir_entry->inode = file_inode_block;
-	// 	new_dir_entry->rec_len = last_dir_entry->rec_len - size_of_last_dir;
-	// 	last_dir_entry->rec_len = size_of_last_dir;
-	// 	new_dir_entry->name_len = strlen(base_name);
-	// 	new_dir_entry->file_type = EXT2_FT_REG_FILE;
-	// 	for (int i=0; i < new_dir_entry->name_len; i++) {
-	// 		new_dir_entry->name[i] = base_name[i];
-	// 	}
-	// } else {
-	// 	last_dir_entry->inode = file_inode_block;
-	// 	last_dir_entry->rec_len = 1024;
-	// 	last_dir_entry->name_len = strlen(base_name);
-	// 	last_dir_entry->file_type = EXT2_FT_REG_FILE;
-	// 	for (int i=0; i < last_dir_entry->name_len; i++) {
-	// 		last_dir_entry->name[i] = base_name[i];
-	// 	}
-	// }
-
-	// struct ext2_inode *file = (struct ext2_inode *) (disk + file_inode_block * EXT2_BLOCK_SIZE);
-	// file->i_links_count++;
-
-	// return;
-
-
-
-
-		// unsigned int * indirect_block_list = (unsigned int *) (disk + *entry_block * EXT2_BLOCK_SIZE);
-		// for (int i=0; i < (EXT2_BLOCK_SIZE / sizeof(unsigned int)); i++) {
-		// 	if ((result = create_directory_entry_walk(indirect_block_list + i, depth - 1, file_name, file_inode_number))) {
-		// 		return result;
-		// 	}
-		// }
