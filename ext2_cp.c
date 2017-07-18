@@ -32,6 +32,7 @@ void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number,
 struct ext2_dir_entry_2 * create_directory_entry_walk(struct ext2_inode *dir_inode, int index, int depth, char *file_name, int file_inode_number);
 char *get_file_name(char *path);
 unsigned int get_size_dir_entry(unsigned int path_length);
+char *concat_system_path(char *dirpath, char *file_name);
 
 
 int main(int argc, char **argv) {
@@ -65,17 +66,6 @@ int main(int argc, char **argv) {
 	} else if (st.st_mode & S_IFDIR) {
 		printf("%s is a directory\n", local_file_path);
 		return EISDIR;
-	// } else {
-	// 	if (argv[3][strlen(argv[3])-1] == '/') {
-	// 		// add the new file name into the path if the disk path is directory path
-	// 		// base name might modify local file path
-	// 		strcpy(base_name, get_file_name(local_file_path));
-	// 		disk_path = malloc(strlen(argv[3]) + strlen(base_name) + 1);
-	// 		strcpy(disk_path, argv[3]);
-	// 		strcat(disk_path, base_name);
-	// 	} else {
-	// 		disk_path = argv[3];
-	// 	}
 	}
 
 	disk_path = argv[3];
@@ -86,12 +76,19 @@ int main(int argc, char **argv) {
 	int path_index = 0;
 	char token[EXT2_NAME_LEN];
 
-	// get root directory for absolute path
+	if (strlen(disk_path) == 1 && disk_path[0] == '/') {
+		char *file_name = get_file_name(local_file_path);
+		disk_path = concat_system_path(disk_path, file_name);
+		free(file_name);
+	}
+
+ 	// get root directory for absolute path
 	path_index = get_next_token(token, disk_path, path_index);
 	if(path_index == -1){
 		printf("No such file or directory\n");
 		return ENOENT;
 	}
+
 
 	struct ext2_inode *current_inode = &(inode_table[EXT2_ROOT_INO-1]);
 	// printf("%d\n", current_inode);
@@ -128,27 +125,12 @@ int main(int argc, char **argv) {
 				exit(1);
 			}
 			// the new file name exists as directory name
-			if (path_index == size) {
+			if (path_index == size || path_index+1 == size) {
 				char *file_name = get_file_name(local_file_path);
-				disk_path = malloc(strlen(disk_path) + 1 + strlen(file_name) + 1);
-				strcpy(disk_path, argv[3]);
-				strcat(disk_path, "/");
-				strcat(disk_path, file_name);
+				disk_path = concat_system_path(disk_path, file_name);
 				free(file_name);
 				appended = 1;
 				size = strlen(disk_path);
-				printf("disk_path %s\n", disk_path);
-				printf("path index %d size %d\n", path_index, size);
-			} else if (path_index + 1 == size){
-				char *file_name = get_file_name(local_file_path);
-				disk_path = malloc(strlen(disk_path) + strlen(file_name) + 1);
-				strcpy(disk_path, argv[3]);
-				strcat(disk_path, file_name);
-				free(file_name);
-				appended++;
-				size = strlen(disk_path);
-				printf("path index %d size %d\n", path_index, size);
-				printf("disk_path %s\n", disk_path);
 			}
 			// normal directory entry during file path
 			path_index += 1;
@@ -170,7 +152,6 @@ int main(int argc, char **argv) {
 		}
 	}
 
-
 	// printf("Address of last inode: %d\n", last_inode);
 	// create the inode for file, and do file copy first
 	unsigned int file_inode_number = allocate_inode();
@@ -182,6 +163,16 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+char *concat_system_path(char *dirpath, char *file_name) {
+	char has_slash = dirpath[strlen(dirpath)-1] == '/';
+	char *concatenated_path = malloc(strlen(dirpath) + strlen(file_name) + 1 + 1 - has_slash);
+	strcpy(concatenated_path, dirpath);
+	if (!has_slash) {
+		strcat(concatenated_path, "/");
+	}
+	strcat(concatenated_path, file_name);
+	return concatenated_path;
+}
 
 char *get_file_name(char *path) {
 	char *path_copy = malloc(strlen(path) + 1);
@@ -209,7 +200,7 @@ struct ext2_dir_entry_2 * create_directory_entry_walk(struct ext2_inode *dir_ino
 		if (!dir_inode->i_block[index]) {
 			// printf("Empty block at index %d\n", index);
 			dir_inode->i_block[index] = allocate_data_block();
-			result = (struct ext2_dir_entry_2 *) (disk + dir_inode->i_block[index] * EXT2_BLOCK_SIZE);
+			result = (struct ext2_dir_entry_2 *) (disk + (dir_inode->i_block[index]) * EXT2_BLOCK_SIZE);
 			result->inode = file_inode_number; 
 			result->rec_len = EXT2_BLOCK_SIZE;
 			result->name_len = strlen(file_name);
@@ -219,7 +210,7 @@ struct ext2_dir_entry_2 * create_directory_entry_walk(struct ext2_inode *dir_ino
 			}
 		} else {
 			// printf("Here %d\n", debug++);
-			struct ext2_dir_entry_2 *entry = (struct ext2_dir_entry_2 *) (disk + dir_inode->i_block[index] * EXT2_BLOCK_SIZE);
+			struct ext2_dir_entry_2 *entry = (struct ext2_dir_entry_2 *) (disk + (dir_inode->i_block[index]) * EXT2_BLOCK_SIZE);
 			unsigned int size_used = entry->rec_len;
 			// find the last entry in the block
 	 		while (size_used < EXT2_BLOCK_SIZE) {
@@ -322,12 +313,12 @@ void create_file(int file_inode_number, char *local_file_path) {
 			single_indirect[block_count-12] = block;
 		}
 		num = fread(content_block, 1, EXT2_BLOCK_SIZE, fp);
-		block_pointer = (char *) (disk + block * EXT2_BLOCK_SIZE);
+		block_pointer = (char *) (disk + (block)* EXT2_BLOCK_SIZE);
 		// can't use strcpy because '\0'
 		for (int i=0; i < num; i++) {
 			block_pointer[i] = content_block[i];
 		}
-		// printf("Num copied %d\n", num);
+		printf("Num copied %d\n", num);
 		sector_needed -= 2;
 	}
 }
@@ -348,9 +339,9 @@ int allocate_data_block() {
 	}
 
 	set_block_bitmap(i);
-	memset((disk + EXT2_BLOCK_SIZE * i), 0, EXT2_BLOCK_SIZE);
+	memset((disk + EXT2_BLOCK_SIZE * (i+1)), 0, EXT2_BLOCK_SIZE);
 	gd->bg_free_blocks_count--;
-	return i;
+	return i+1;
 }
 
 int block_taken(int index) {
