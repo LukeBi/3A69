@@ -41,3 +41,4 @@ int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir);
 void print_directory_entries(struct ext2_inode *inode, char flag);
 void print_directory_block_entries(char flag, unsigned int block);
 void walk_directory_entries(int depth, int block, char flag);
+int find_free_bitmap(unsigned char * bitmap, int size);

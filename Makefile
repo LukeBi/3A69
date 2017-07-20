@@ -1,4 +1,4 @@
-FLAGS = -Wall
+FLAGS = -Wall -std=gnu99
 IMAGES = trace/deleteddirectory.txt trace/deletedfile.txt trace/emptydisk.txt trace/hardlink.txt trace/largefile.txt trace/onedirectory.txt trace/onefile.txt trace/twolevel.txt
 ASSIGNMENTFILES = ext2_ls ext2_cp ext2_mkdir ext2_ln ext2_rm ext2_rm_bonus
 DEPENDENCIES = helper.h ext2.h
