@@ -15,24 +15,21 @@ void init(int fd){
 }
 
 struct ext2_inode *fetch_last(char* filepath, char * token, char get_last){
+    // Fetch root, error if path does not include root
     int path_index = 0;
     path_index = get_next_token(token, filepath, path_index);
     if(path_index == -1){
         show_error(DOESNOTEXIST, ENOENT);
     }
     struct ext2_inode *inode = &(inode_table[EXT2_ROOT_INO-1]);
+    struct ext2_inode *ret_inode = NULL;
     int size = strlen(filepath);
-    if(path_index + 1 >= size){
-        show_error(ALREADYEXIST, EEXIST);
-    }
-    path_index = get_next_token(token, filepath, path_index);
-    if(path_index + 1 >= size){
-        path_index += 1;
-    }
     while(path_index < size){
+        path_index = get_next_token(token, filepath, path_index);
         if(path_index == -1){
             show_error(DOESNOTEXIST, ENOENT);
         }
+        ret_inode = inode;
         inode = find_inode(token, strlen(token), inode);
         if(!inode){
             show_error(DOESNOTEXIST, ENOENT);
@@ -44,24 +41,11 @@ struct ext2_inode *fetch_last(char* filepath, char * token, char get_last){
         if(inode->i_mode & EXT2_S_IFLNK && path_index != size){
             show_error(DOESNOTEXIST, ENOENT);
         }
-        if(path_index < size){
-            path_index = get_next_token(token, filepath, path_index);
-        }
-        if(path_index + 1 >= size){
-            path_index += 1;
-        }
     }
     if(get_last){
-      inode = find_inode(token, strlen(token), inode);
-        if(!inode){
-            show_error(DOESNOTEXIST, ENOENT);
-        }
-    }else{
-      if(find_inode(token, strlen(token), inode)){
-        show_error(ALREADYEXIST, EEXIST);
-      }
+        ret_inode = inode;
     }
-    return inode;
+    return ret_inode;
 }
 
 int get_next_token(char * token, char * path, int index){
