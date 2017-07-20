@@ -221,3 +221,18 @@ void print_directory_block_entries(char flag, unsigned int block){
         dir = (struct ext2_dir_entry_2 *) dirptr;
     }
 }
+
+int find_free_bitmap(unsigned char * bitmap, int size){
+    // Size is in bytes, convert to bits
+    size*=8;
+    for(int i = EXT2_GOOD_OLD_FIRST_INO; i < size; i++){
+        unsigned char shift = 7;
+        unsigned int pos = ~7;
+        if(!( (1 << (i & shift)) & (bitmap[(i & pos) >> 3]))){
+          // Flag the bitmap, as it is taken now
+            (bitmap[(i & pos) >> 3]) |= (1 << (i & shift)); 
+            return i;
+        }
+    }
+    return -1;
+}
