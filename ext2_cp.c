@@ -27,7 +27,7 @@ int block_taken(int index);
 void set_block_bitmap(int index);
 int inode_is_taken(int index);
 void set_inode_bitmap(int index);
-void create_file(int file_inode_block, char *local_file_path);
+void create_file(int file_inode_number, char *local_file_path, struct ext2_inode *file_inode);
 void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number, char *disk_path);
 // struct ext2_dir_entry_2 * create_directory_entry_walk(struct ext2_inode *dir_inode, int index, int depth, char *file_name, int file_inode_number);
 char *get_file_name(char *path);
@@ -149,6 +149,9 @@ int main(int argc, char **argv) {
 				// case: override the existing file
 				// no need to edit path
 				printf("case: overwritting file at path %s\n", disk_path);
+				create_file(-1, local_file_path, current_inode);
+				// no need to modify directory entry or allocate new inode
+				return 0;
 			}
 		}
 	}
@@ -156,7 +159,7 @@ int main(int argc, char **argv) {
 	// printf("Address of last inode: %d\n", last_inode);
 	// create the inode for file, and do file copy first
 	unsigned int file_inode_number = allocate_inode();
-	create_file(file_inode_number, local_file_path);
+	create_file(file_inode_number, local_file_path, NULL);
 	// then create directory entry in the directory
 	create_directory_entry(last_inode, file_inode_number, disk_path);
 
@@ -198,7 +201,7 @@ void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number,
 	unsigned int *block_num_addr;
 	for (int i=0; i < 15; i++) {
 		block_num_addr = &(dir_inode->i_block[i]);
-		printf("%p\n", block_num_addr);
+		// printf("%p\n", block_num_addr);
 		depth = (i >= 12) ? (i - 11):0;
 		if ((result = create_directory_entry_walk_2(block_num_addr, depth, size_needed))) {
 			// use result to set up
@@ -217,12 +220,12 @@ void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number,
 
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed) {
 	int degug = 0;
-	printf("DEBUG 0\n");
+	// printf("DEBUG 0\n");
 	struct ext2_dir_entry_2 *result = NULL;
 	unsigned ints_per_block = EXT2_BLOCK_SIZE / sizeof(unsigned int);
-	printf("The dir address is %p\n", block_num);
+	// printf("The dir address is %p\n", block_num);
 	if (depth) {
-		printf("DEBUG 1\n");
+		// printf("DEBUG 1\n");
 		if (*block_num) {
 			// the secondary directory entry blocks array is already initiated
 			unsigned int *blocks = (unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE);
@@ -235,13 +238,6 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 				index++;
 			} 
 			return NULL;
-			// if (index == ints_per_block) {
-			// 	return NULL;
-			// } else {
-			// 	blocks[index] = allocate_data_block();
-			// 	memset((disk + blocks[index] * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
-			// 	return create_directory_entry_walk_2(blocks[index], depth-1, size_needed);
-			// }
 		} else {
 			// initiate the secondary directory entry blocks array
 			*block_num = allocate_data_block();
@@ -252,15 +248,15 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 				size_needed);
 		}
 	} else {
-		printf("DEBUG 2\n");
+		// printf("DEBUG 2\n");
 		if (!*block_num) {
-			printf("DEBUG %d\n", degug++);
+			// printf("DEBUG %d\n", degug++);
 			*block_num = allocate_data_block();
 			memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
 		}
 		struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *) (disk + *block_num * EXT2_BLOCK_SIZE);
 		if (dir_entry->rec_len) {
-			printf("DEBUG 3\n");
+			// printf("DEBUG 3\n");
 			// the block has some entries
 			// find the last entry
 			unsigned int size_used = dir_entry->rec_len;
@@ -275,7 +271,7 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 				dir_entry->rec_len = actual_last_entry_size;
 			}
 		} else {
-			printf("DEBUG 4\n");
+			// printf("DEBUG 4\n");
 			result = dir_entry;
 			result->rec_len = EXT2_BLOCK_SIZE;
 		}
@@ -283,62 +279,6 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 	}
 }
 
-
-// struct ext2_dir_entry_2 * create_directory_entry_walk(struct ext2_inode *dir_inode, int index, int depth, char *file_name, int file_inode_number) {
-// 	int debug = 0;
-// 	// printf("Here %d\n", debug++);
-// 	struct ext2_dir_entry_2 *result = NULL;
-// 	if (depth) {
-// 		// printf("In depth %d\n", depth);
-// 		// printf("Should not be here, using indirect directory entry\n");
-// 		// if (dir_inode->i_block[index]) {
-// 		// 	dir_inode->i_block[index] = allocate_data_block();
-// 		// }
-// 		return NULL;
-// 	} else {
-// 		// printf("Dir_node address: %d\n", dir_inode);
-// 		if (!dir_inode->i_block[index]) {
-// 			// printf("Empty block at index %d\n", index);
-// 			dir_inode->i_block[index] = allocate_data_block();
-// 			result = (struct ext2_dir_entry_2 *) (disk + (dir_inode->i_block[index]) * EXT2_BLOCK_SIZE);
-// 			result->inode = file_inode_number; 
-// 			result->rec_len = EXT2_BLOCK_SIZE;
-// 			result->name_len = strlen(file_name);
-// 			result->file_type = EXT2_FT_REG_FILE;
-// 			for (int i=0; i < result->name_len; i++) {
-// 				result->name[i] = file_name[i];
-// 			}
-// 		} else {
-// 			// printf("Here %d\n", debug++);
-// 			struct ext2_dir_entry_2 *entry = (struct ext2_dir_entry_2 *) (disk + (dir_inode->i_block[index]) * EXT2_BLOCK_SIZE);
-// 			unsigned int size_used = entry->rec_len;
-// 			// find the last entry in the block
-// 	 		while (size_used < EXT2_BLOCK_SIZE) {
-// 	 			// printf("size_used = %d\n", size_used);
-// 	 			// printf("Size \n");
-// 				entry = (struct ext2_dir_entry_2 *)((char *) entry + entry->rec_len);
-// 				size_used += entry->rec_len;
-// 			}
-// 			// there is enough space to creathe the new entry in the block
-// 			if (entry->rec_len >= get_size_dir_entry(entry->name_len) + get_size_dir_entry(strlen(file_name))) {
-// 				int entry_size = get_size_dir_entry(entry->name_len);
-// 				result = (struct ext2_dir_entry_2 *)((char *)entry + entry_size);
-// 				result->rec_len = entry->rec_len - entry_size;
-// 				entry->rec_len = entry_size;
-// 				result->inode = file_inode_number; 
-// 				result->name_len = strlen(file_name);
-// 				result->file_type = EXT2_FT_REG_FILE;
-// 				for (int i=0; i < result->name_len; i++) {
-// 					result->name[i] = file_name[i];
-// 				}
-// 				return result;
-// 			} else {
-// 				return NULL;
-// 			}
-// 		} 
-// 	}
-// 	return NULL;
-// }
 
 unsigned int get_size_dir_entry(unsigned int path_length) {
 	path_length += 8;
@@ -350,10 +290,12 @@ unsigned int get_size_dir_entry(unsigned int path_length) {
 
 
 
-
-void create_file(int file_inode_number, char *local_file_path) {
-	// get the file inode`
-	struct ext2_inode *file_inode = &(inode_table[file_inode_number - 1]);
+void create_file(int file_inode_number, char *local_file_path, struct ext2_inode *file_inode) {
+	if (!file_inode) {
+		// get the file inode`
+		file_inode = &(inode_table[file_inode_number - 1]);
+		file_inode->i_links_count = 1;
+	}
 	// set type
 	file_inode->i_mode = EXT2_S_IFREG;
 
@@ -383,29 +325,48 @@ void create_file(int file_inode_number, char *local_file_path) {
 	file_inode->i_blocks = sector_needed;
 	// printf("Inode %d with blocks(sectors) %d\n", file_inode_number, sector_needed);
 	// newly created file will have one link
-	file_inode->i_links_count = 1;
+
 
 	// get indirect inode if needed	
 	unsigned int *single_indirect;
+	char clear = 0;
 	if (sector_needed > 24) {
-		file_inode->i_block[12] = allocate_data_block();
+		if (!file_inode->i_block[12]) {
+			file_inode->i_block[12] = allocate_data_block();
+			clear = 1;
+		}
 		single_indirect = (unsigned int *) (disk + file_inode->i_block[12] * EXT2_BLOCK_SIZE);
+		if (clear) {
+			memset(single_indirect, 0, EXT2_BLOCK_SIZE);
+		}
 		// may should not to initialize all to 0
-		memset(single_indirect, 0, EXT2_BLOCK_SIZE);
 	}
 
 	// start copying file contents
 	int block, num;
 	int block_count = 0;
 	char *block_pointer;
+	char create_new_ones = 0;
 	while (sector_needed > 0) {
-		block = allocate_data_block();
-		block_count++;
-		if (block_count < 12) {
-			(file_inode->i_block)[block_count-1] = block;
+		if (create_new_ones || !file_inode->i_block[block_count]) {
+			create_new_ones = 1;
+			block = allocate_data_block();
+
+			if (block_count < 12) {
+				(file_inode->i_block)[block_count] = block;
+			} else {
+				single_indirect[block_count-12] = block;
+			}
 		} else {
-			single_indirect[block_count-12] = block;
+			if (block_count < 12) {
+				block = (file_inode->i_block)[block_count];
+			} else {
+				block = single_indirect[block_count-12];
+			}
 		}
+
+		block_count++;
+
 		num = fread(content_block, 1, EXT2_BLOCK_SIZE, fp);
 		block_pointer = (char *) (disk + (block)* EXT2_BLOCK_SIZE);
 		// can't use strcpy because '\0'
@@ -415,6 +376,17 @@ void create_file(int file_inode_number, char *local_file_path) {
 		printf("Num copied %d\n", num);
 		sector_needed -= 2;
 	}
+
+	// set the next data block bit to be zero incase previous file uses more than blocks
+	unsigned int total_blocks_for_single_indirection = 12 + EXT2_BLOCK_SIZE / sizeof(unsigned int);
+	if (block_count <= 12) {
+		// no indirection
+		(file_inode->i_block)[block_count] = 0;
+	} else {
+		// indirection, set 0 start from index 1
+		single_indirect[block_count - 12] = 0;
+	}
+
 }
 
 int allocate_data_block() {
