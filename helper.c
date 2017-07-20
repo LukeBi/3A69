@@ -247,7 +247,7 @@ int insert_entry(struct ext2_inode *inode, struct ext2_dir_entry_2 * insdir, int
         bptr = inode->i_block[i];
         if(i < 12){
             if(bptr){
-                newblock = insert_entry_block(disk, bptr, insdir);
+                newblock = insert_entry_block(bptr, insdir);
                 if(newblock){
                     return newblock;
                 }
@@ -279,7 +279,7 @@ int insert_entry(struct ext2_inode *inode, struct ext2_dir_entry_2 * insdir, int
     return newblock;
 }
 
-int insert_entry_block(unsigned char* disk, unsigned int block, struct ext2_dir_entry_2 * insdir){
+int insert_entry_block(unsigned int block, struct ext2_dir_entry_2 * insdir){
   
     char * dirptr = (char *)(disk + block * EXT2_BLOCK_SIZE);
     char * next_block = dirptr + EXT2_BLOCK_SIZE;
@@ -321,7 +321,7 @@ int insert_entry_walk(int depth, int block, struct ext2_dir_entry_2 * insdir, in
     if(depth == 0){
         for(int i = 0; i < 15; i++){
             if(inode[i]){
-                newblock = insert_entry_block(disk, inode[i], insdir);
+                newblock = insert_entry_block(inode[i], insdir);
                 if(newblock){
                     return newblock;
                 }
@@ -360,7 +360,7 @@ void init_dirent(struct ext2_dir_entry_2 * dir, unsigned int inode, unsigned sho
     dir->rec_len = rec_len;
     dir->name_len = name_len;
     dir->file_type = file_type;
-    for(int i = 0; i < name_len){
+    for(int i = 0; i < name_len; i++){
         dir->name[i] = name[i];
     }
 }

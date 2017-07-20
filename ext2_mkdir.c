@@ -10,57 +10,11 @@ int main(int argc, char **argv) {
     filepath = argv[2];
     int fd = open(argv[1], O_RDWR);
     init(fd);
-    struct ext2_super_block *sb = (struct ext2_super_block *)(disk + 1024);
-    struct ext2_group_desc *gd = (struct ext2_group_desc *)(disk + 2*EXT2_BLOCK_SIZE);
-    struct ext2_inode *inode_table = (struct ext2_inode *)(disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
-    unsigned char * block_bitmap = disk + (gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
-    unsigned char * inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
      
     // Fetch root, error if path does not include root
-    int path_index = 0;
     char token[EXT2_NAME_LEN];
-    path_index = get_next_token(token, filepath, path_index);
-    if(path_index == -1){
-        printf("No such file or directory\n");
-        return ENOENT;
-    }
-     
-    struct ext2_inode *inode = &(inode_table[EXT2_ROOT_INO-1]);
-    int size = strlen(filepath);
-    if(path_index + 1 >= size){
-        printf("File exists\n");
-        return EEXIST;
-    }
-    path_index = get_next_token(token, filepath, path_index);
-    if(path_index + 1 >= size){
-        path_index += 1;
-    }
-    while(path_index < size){
-        if(path_index == -1){
-            printf("No such file or directory\n");
-            return ENOENT;
-        }
-        inode = find_inode(token, strlen(token), inode, inode_table, disk);
-        if(!inode){
-            printf("No such file or directory\n");
-            return ENOENT;
-        }
-        if(inode->i_mode & EXT2_S_IFDIR){
-            path_index += 1;
-        }
-        // Test both symlink and directory in middle of path (works because symlink masks over dir)
-        if(inode->i_mode & EXT2_S_IFLNK && path_index != size){
-            printf("No such file or directory\n");
-            return ENOENT;
-        }
-        if(path_index < size){
-            path_index = get_next_token(token, filepath, path_index);
-        }
-        if(path_index + 1 >= size){
-            path_index += 1;
-        }
-    }
-    if(find_inode(token, strlen(token), inode, inode_table, disk)){
+    struct ext2_inode * inode = fetch_last(filepath, token, FALSE);
+    if(find_inode(token, strlen(token), inode)){
         printf("File exists\n");
         return EEXIST;
     }
@@ -93,14 +47,13 @@ int main(int argc, char **argv) {
     init_dirent(curr_dir, free_inode, 12, 1, EXT2_FT_DIR, ".");
     dirptr += curr_dir->rec_len;
     curr_dir = (struct ext2_dir_entry_2 *) dirptr;
-    init_dirent(curr_dir, , EXT2_BLOCK_SIZE - 12, 2, EXT2_FT_DIR, "..");
-    curr_dir->inode = inode_number(inode);
+    init_dirent(curr_dir, inode_number(inode), EXT2_BLOCK_SIZE - 12, 2, EXT2_FT_DIR, "..");
      
     // Walk directories for first empty dir entry in inode, and insert new curr_dir
     struct ext2_dir_entry_2 * insdir = malloc(dirlen);
     init_dirent(insdir, free_inode, dirlen, strlen(token), EXT2_FT_DIR, token);
     int newblocks = 0;
-    int insertedto = insert_entry(inode, disk, insdir, block_bitmap, sb->s_blocks_count / 8, &newblocks);
+    int insertedto = insert_entry(inode, insdir, sb->s_blocks_count / 8, &newblocks);
     if(!insertedto){
         printf("Not enough space\n");
         return ENOENT;
