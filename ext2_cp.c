@@ -58,7 +58,6 @@ int main(int argc, char **argv) {
 	// check local file path is a valid file path
 	// local file should exist and not be a directory
 	char *local_file_path = argv[2];
-	char base_name[EXT2_NAME_LEN];
 	char *disk_path = argv[3];
 	struct stat st;
 	if (lstat(local_file_path, &st)) {
@@ -219,7 +218,7 @@ void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number,
 }
 
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed) {
-	int degug = 0;
+	// int degug = 0;
 	// printf("DEBUG 0\n");
 	struct ext2_dir_entry_2 *result = NULL;
 	unsigned ints_per_block = EXT2_BLOCK_SIZE / sizeof(unsigned int);
@@ -379,7 +378,6 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 	}
 
 	// set the next data block bit to be zero incase previous file uses more than blocks
-	unsigned int total_blocks_for_single_indirection = 12 + EXT2_BLOCK_SIZE / sizeof(unsigned int);
 	if (block_count <= 12) {
 		// no indirection
 		(file_inode->i_block)[block_count] = 0;
@@ -415,14 +413,14 @@ int block_taken(int index) {
 	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	return bitmap[sec] & mask;
+	return bitmap[(unsigned int) sec] & mask;
 }
 
 void set_block_bitmap(int index) {
 	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	bitmap[sec] |= mask;	
+	bitmap[(unsigned int) sec] |= mask;	
 }
 
 int allocate_inode() {
@@ -455,14 +453,14 @@ int inode_is_taken(int index) {
 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	return bitmap[sec] & mask;
+	return bitmap[(unsigned int)sec] & mask;
 }
 
 void set_inode_bitmap(int index) {
 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	bitmap[sec] |= mask;
+	bitmap[(unsigned int) sec] |= mask;
 }
 
 int get_next_token(char * token, char * path, int index){
