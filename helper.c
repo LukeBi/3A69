@@ -83,6 +83,9 @@ void show_error(int error, int exitcode){
         case ALREADYEXIST:
             string = FILEEX;
             break;
+        case ISADIRECTORY:
+            string = ISADIR; 
+            break;
         case EXT2LS:
             string = LSUSAGE;
             break;
@@ -100,28 +103,55 @@ void show_error(int error, int exitcode){
 }
 
 struct ext2_inode * find_inode(char * name, int size, struct ext2_inode *inode){
-    struct ext2_inode * inode_ptr = NULL;
+    struct ext2_dir_entry_2 * dir = find_dir(name, size, inode);
+    if(dir){
+        return &(inode_table[(dir->inode) - 1]);
+    }else{
+        return NULL;
+    }
+}
+
+struct ext2_inode * find_inode_block(char * name, int size, unsigned int block){
+    struct ext2_dir_entry_2 * dir = find_dir_block(name, size, block);
+    if(dir){
+        return &(inode_table[(dir->inode) - 1]);
+    }else{
+        return NULL;
+    }
+}
+
+struct ext2_inode * find_inode_walk(int depth, int block, char * name, int size){
+    struct ext2_dir_entry_2 * dir = find_dir_walk(depth, block, name, size);
+    if(dir){
+        return &(inode_table[(dir->inode) - 1]);
+    }else{
+        return NULL;
+    }
+}
+
+struct ext2_dir_entry_2 * find_dir(char * name, int size, struct ext2_inode *inode){
+    struct ext2_dir_entry_2 * dir = NULL;
     unsigned int bptr;
     for(int i = 0; i < 15; i++){
         bptr = inode->i_block[i];
         if(bptr){
             if(i < 12){
-                inode_ptr = find_inode_block(name, size, bptr);
-                if(inode_ptr){
-                    return inode_ptr;
+                dir = find_dir_block(name, size, bptr);
+                if(dir){
+                    return dir;
                 }
             }else{
-                inode_ptr = find_inode_walk(i - 12, inode->i_block[i], name, size);
-                if(inode_ptr){
-                    return inode_ptr;
+                dir = find_dir_walk(i - 12, inode->i_block[i], name, size);
+                if(dir){
+                    return dir;
                 }
             }
         }
     }
-  return inode_ptr;
+  return dir;
 }
 
-struct ext2_inode * find_inode_block(char * name, int size, unsigned int block){
+struct ext2_dir_entry_2 * find_dir_block(char * name, int size, unsigned int block){
     // Init dir entry vars in the block
     char * dirptr = (char *)(disk + block * EXT2_BLOCK_SIZE);
     char * next_block = dirptr + EXT2_BLOCK_SIZE;
@@ -130,7 +160,7 @@ struct ext2_inode * find_inode_block(char * name, int size, unsigned int block){
     // Cycle through dir entries in the block
     while(dirptr != next_block){
         if(path_equal(name, size, dir)){
-            return &(inode_table[dir->inode - 1]);
+            return dir;
         }
         dirptr += dir->rec_len;
         dir = (struct ext2_dir_entry_2 *) dirptr;
@@ -138,29 +168,29 @@ struct ext2_inode * find_inode_block(char * name, int size, unsigned int block){
     return NULL;
 }
 
-struct ext2_inode * find_inode_walk(int depth, int block, char * name, int size){
-    struct ext2_inode * inode_ptr = NULL;
+struct ext2_dir_entry_2 * find_dir_walk(int depth, int block, char * name, int size){
+    struct ext2_dir_entry_2 * dir = NULL;
     unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     if(depth == 0){
         for(int i = 0; i < 15; i++){
             if(inode[i]){
-                inode_ptr = find_inode_block(name, size, inode[i]);
-                if(inode_ptr){
-                    return inode_ptr;
+                dir = find_dir_block(name, size, inode[i]);
+                if(dir){
+                    return dir;
                 }
             }
         }
     } else {
         for(int i = 0; i < 15; i++){
             if(inode[i]){
-                inode_ptr = find_inode_walk(depth - 1, inode[i], name, size);
-                if(inode_ptr){
-                    return inode_ptr;
+                dir = find_dir_walk(depth - 1, inode[i], name, size);
+                if(dir){
+                    return dir;
                 }
             }
         }
     }
-    return inode_ptr; 
+    return dir; 
 }
 
 int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir){

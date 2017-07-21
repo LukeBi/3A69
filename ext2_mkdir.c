@@ -12,6 +12,7 @@ int main(int argc, char **argv) {
     // Fetch root, error if path does not include root
     char token[EXT2_NAME_LEN];
     struct ext2_inode * inode = fetch_last(filepath, token, FALSE);
+    // Only case for this, is when the next node is root, which must always exist
     if(!inode){
         show_error(ALREADYEXIST, EEXIST);    
     }
