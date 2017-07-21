@@ -32,6 +32,9 @@ struct ext2_inode *fetch_last(char* filepath, char * token, char get_last){
         ret_inode = inode;
         inode = find_inode(token, strlen(token), inode);
         if(!inode){
+            if(path_index + 1 >= size && (!get_last)){
+                return ret_inode;
+            }
             show_error(DOESNOTEXIST, ENOENT);
         }
         if(inode->i_mode & EXT2_S_IFDIR){

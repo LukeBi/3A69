@@ -3,10 +3,8 @@
 int main(int argc, char **argv) {
     char * filepath;
     if(argc != 3) {
-        fprintf(stderr, "Usage: ext2_mkdir <image file name> <absolute file path>\n");
-        exit(1);
+        show_error(EXT2MKDIR, 1);
     }
-    
     filepath = argv[2];
     int fd = open(argv[1], O_RDWR);
     init(fd);
@@ -14,9 +12,11 @@ int main(int argc, char **argv) {
     // Fetch root, error if path does not include root
     char token[EXT2_NAME_LEN];
     struct ext2_inode * inode = fetch_last(filepath, token, FALSE);
+    if(!inode){
+        show_error(ALREADYEXIST, EEXIST);    
+    }
     if(find_inode(token, strlen(token), inode)){
-        printf("File exists\n");
-        return EEXIST;
+        show_error(ALREADYEXIST, EEXIST);    
     }
      
     int dirlen = sizeof(struct ext2_dir_entry_2);
@@ -40,7 +40,6 @@ int main(int argc, char **argv) {
     // Reserve a block for inode, insert . and ..
     int free_block = find_free_bitmap(block_bitmap, sb->s_blocks_count / 8) + 1;
     next_inode->i_block[0] = (unsigned int) free_block;
-    next_inode->i_block[1] = 0;
      
     char * dirptr = (char *)(disk + (unsigned) (free_block) * EXT2_BLOCK_SIZE);
     struct ext2_dir_entry_2 * curr_dir = (struct ext2_dir_entry_2 *) dirptr;
