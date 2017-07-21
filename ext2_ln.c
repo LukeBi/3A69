@@ -15,14 +15,41 @@ struct ext2_group_desc *gd;
 struct ext2_inode *inode_table;  
 struct ext2_super_block *sb;
 
+int create_hard_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path);
+int create_soft_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path);
+unsigned int create_softlink_file(char *source_file_path);
+unsigned int inode_number(struct ext2_inode *inode_ptr);
+struct ext2_inode *get_inode_for_file_path(char *source_file_path);
+void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link);
+struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed);
+char *get_file_name(char *path);
+unsigned int get_size_dir_entry(unsigned int path_length);
+int get_next_token(char * token, char * path, int index);
+struct ext2_inode * find_inode(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
+struct ext2_inode * find_inode_block(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
+int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir);
+struct ext2_inode * find_inode_walk(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
+int allocate_data_block(void);
+int block_taken(int index);
+void set_block_bitmap(int index); 
+int allocate_inode(void);
+int inode_is_taken(int index); 
+void set_inode_bitmap(int index);
+
+
+
 int main(int argc, char **argv) {
 	char *link_file_path;
 	char *source_file_path;
+	// flag for -s command
 	char soft_link = 0;
+	// check input argument
 	if (argc == 4) {
+		// create hard link
 		link_file_path = argv[2];
 		source_file_path = argv[3];
     } else if (argc == 5 && !strcmp("-s", argv[2])) {
+    	// create soft link
     	link_file_path = argv[3];
     	source_file_path = argv[4];
     	soft_link = 1;
@@ -45,10 +72,14 @@ int main(int argc, char **argv) {
 	int path_index = 0;
 	char token[EXT2_NAME_LEN];
 
-	// first check if first file path exists and if it's valid
+	// first check if link file path exists and if it's valid
 	path_index = get_next_token(token, link_file_path, path_index);
 	if (path_index == -1) {
 		fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
+		return ENOENT;
+	}
+	if (strlen(link_file_path) == 1 && link_file_path[0] == '/') {
+		fprintf(stderr, "ln: %s: Directory exists\n", link_file_path);
 		return ENOENT;
 	}
 
@@ -66,36 +97,47 @@ int main(int argc, char **argv) {
 		}
 
 		current_inode = find_inode(token, strlen(token), current_inode, inode_table, disk);
-		// reach not existing
 		if (!current_inode) {
-			// not existing during middle of the path -> invalid
+			// reach not existing path component
 			if (path_index != size) {
+				// the component is in the middle of the path
+				printf("Here\n");
 				fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
 				return ENOENT;
 			} else {
+				// the component is at the end of the path
 				// the file path does not exist yet, but valid
 				if (soft_link) {
-					create_soft_link(last_inode, link_file_path, source_file_path);
+					return create_soft_link(last_inode, link_file_path, source_file_path);
 				} else {
+					// hard link will check for source file path, may return error value
 					return create_hard_link(last_inode, link_file_path, source_file_path);
 				}
 			}
 		}
 
-		if (current_inode->i_mode & EXT2_S_IF_DIR) {
+		if (current_inode->i_mode & EXT2_S_IFDIR) {
+			// directory component in the path
 			if (path_index == size || path_index + 1 == size) {
+				// the component is at the end of path
+				// directory exists at link path
+				printf("HERE\n");
 				fprintf(stderr, "ln: %s: Directory exists\n", link_file_path);
 				return EISDIR;
 			} else {
+				// read slash
 				path_index++;
 			}
 		}
 
-		if (current_inode->i_mode & EXT2_S_IFLINK) {
+		if (current_inode->i_mode & EXT2_S_IFLNK) {
+			// reach a file
 			if (path_index != size) {
+				// file in the middle of path -> invalid path
 				fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
 				return ENOENT;
 			} else {	
+				// file at the end of path, link file path already exists
 				fprintf(stderr, "ln: %s: File exists\n", link_file_path);
 				return EEXIST;
 			}
@@ -104,76 +146,134 @@ int main(int argc, char **argv) {
 	return 0;
 }
 
+/*
+ * Create a hard link in the given directory inode, with the source file path given. 
+ * 
+ */
 int create_hard_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path) {
+	printf("create_hard_link\n");
 	// get source_file_inode at given path
 	struct ext2_inode *source_file_inode = get_inode_for_file_path(source_file_path);
-	// create directory entry with link file name, and the source file inode
 	if (source_file_inode) {
-		if (source_inode->i_mode & EXT2_S_IF_DIR) {
-			fprintf(stderr, "ln: %s: Directory exists\n", link_file_path);
+		// source path is valid
+		if (source_file_inode->i_mode & EXT2_S_IFDIR) {
+			// source is directory
+			fprintf(stderr, "ln: %s: Directory exists\n", source_file_path);
 			return EISDIR;
 		} else {
-			unsigned int source_inode_number = inode_number(source_inode);
+			// source is file
+			unsigned int source_inode_number = inode_number(source_file_inode);
 			char *file_name = get_file_name(link_file_path);
-			create_directory_entry(dir_inode, source_file_inode, file_name);
+			// create the directory entry
+			create_directory_entry(dir_inode, source_inode_number, file_name, 0);
+			// increment link count for the file inode
+			source_file_inode->i_links_count++;
 		}
 	} else {
+		// file path invalid
 		fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
 		return ENOENT;
 	}
 	return 0;
 }
 
-void create_soft_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path) {
-	unsigned link_file_inode_number = create_soft_ink_file(source_file_path);
+/*
+ * Create the soft link file in side given directory inode with content as the given
+ * source file path.
+ */
+int create_soft_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path) {
+	printf("create_soft\n");
+	unsigned link_file_inode_number = create_softlink_file(source_file_path);
 	char *link_file_name = get_file_name(link_file_path);
-	unsigned size_needed = get_size_dir_entry(strlen(link_file_name));
-	create_directory_entry(dir_inode, file_inode_number, link_file_name);	
+	create_directory_entry(dir_inode, link_file_inode_number, link_file_name, 1);	
+	return 0;
 }
 
-void create_softlink_file(char *source_file_path) {
+
+/* 
+ * Create a link file with the content as given source path.
+ * Return the inode number of the created file.
+ */
+unsigned int create_softlink_file(char *source_file_path) {
+	printf("create_softlink_file\n");
+	// allocate inode
 	unsigned int source_file_inode_number = allocate_inode();
-	struct ext2_inode *source_inode = &(inode_table[file_inode_number - 1]);
+	printf("Inode number is %d\n", source_file_inode_number);
+	struct ext2_inode *source_inode = &(inode_table[source_file_inode_number - 1]);
 
-	source_inode->i_mode = EXT2_S_IFLINK;
+	// set inode info
+	source_inode->i_mode = EXT2_S_IFLNK;
 	source_inode->i_size = strlen(source_file_path);
+	source_inode->i_links_count = 1;
 
-	unsigned int sector_needed = source_inode_number->i_size / 512;
-
+	unsigned int sector_needed = source_inode->i_size / 512;
 	if (source_inode->i_size % 512) {
 		sector_needed++;
 	}
 	sector_needed += sector_needed % 2;
 	source_inode->i_blocks = sector_needed;
-
+	
+	// initiate indirect table if needed
+	unsigned int *single_indirect = NULL;
 	if (sector_needed > 24) {
-		single_indirect = (unsigned int *) (disk + file_inode->i_block[12] * EXT2_BLOCK_SIZE);
-
+		source_inode->i_block[12] = allocate_data_block();
+		single_indirect = (unsigned int *) (disk + source_inode->i_block[12] * EXT2_BLOCK_SIZE);
 	}
 
+	// writing path into content blocks
+	unsigned int block_count = 0;
+	unsigned int index = 0;
+	unsigned int block, num;
+	char *block_pointer;
 	while (sector_needed > 0) {
-		if (!file_inode->i_block[s_blocks_count]) {
-			block = allocate_data_block();
+		// allocate content block
+		block = allocate_data_block();
+		if (block_count < 12) {
+			source_inode->i_block[block_count] = block;
+		} else {
+			single_indirect[block_count - 12] = block;
+		}
+		block_count++;
+
+		block_pointer = (char *) (disk + block * EXT2_BLOCK_SIZE);
+		// determine the size to write
+		num = source_inode->i_size - index;
+		if (num > EXT2_BLOCK_SIZE) {
+			num = EXT2_BLOCK_SIZE;
+		}
+		// copy content
+		for (int i=0; i < num; i++) {
+			block_pointer[i] = source_file_path[index++];
 		}
 
+		sector_needed -= 2;
 	}
 
+	// set 0 after the last used node
+	if (block_count <= 12) {
+		source_inode->i_block[block_count] = 0;
+	} else {
+		single_indirect[block_count - block_count] = 0;
+	}
 
-
-
-
+	return source_file_inode_number;
 }
 
-unsigned int inode_number(struct ext2_inode *);
+unsigned int inode_number(struct ext2_inode *inode_ptr) {
+	printf("inode_number\n");
+	return (unsigned int)(inode_ptr - inode_table) + 1;
+	// return ((inode_ptr - inode_table) / sizeof(struct ext2_inode)) + 1;
+}
+
 struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
+	printf("get_inode_for_file_path\n");
 	int path_index = 0;
 	char token[EXT2_NAME_LEN];
 
 	// first check if first file path exists and if it's valid
 	path_index = get_next_token(token, source_file_path, path_index);
 	if (path_index == -1) {
-		fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
-		return ENOENT;
+		return NULL;
 	}
 
 	struct ext2_inode *current_inode = &(inode_table[EXT2_ROOT_INO - 1]);
@@ -181,7 +281,7 @@ struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
 	int size = strlen(source_file_path);
 	while (path_index < size) {
 		last_inode = current_inode;
-		path_index = get_next_token(token, link_file_path, path_index);
+		path_index = get_next_token(token, source_file_path, path_index);
 
 		if (path_index == -1) {
 			// path too long
@@ -194,11 +294,11 @@ struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
 			return NULL;
 		}
 
-		if (current_inode->i_mode & EXT2_S_IF_DIR) {
+		if (current_inode->i_mode & EXT2_S_IFDIR) {
 			path_index++;
 		}
 
-		if (current_inode->i_mode & EXT2_S_IFLINK && path_index != size) {
+		if (current_inode->i_mode & EXT2_S_IFLNK && path_index != size) {
 			return NULL;
 		}
 	}
@@ -207,7 +307,12 @@ struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
 }
 
 
-void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name) {
+/* 
+ * Create a directory entry inside given directory inode, with given file inode number
+ * and file name.
+ */
+void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link) {
+	printf("create_directory_entry\n");
 	struct ext2_dir_entry_2 *result = NULL;
 	unsigned size_needed = get_size_dir_entry(strlen(file_name));
 	int depth;
@@ -216,50 +321,65 @@ void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inod
 		block_num_addr = &(dir_inode->i_block[i]);
 		// printf("%p\n", block_num_addr);
 		depth = (i >= 12) ? (i - 11):0;
+		// get pointer for result directory entry
 		if ((result = create_directory_entry_walk_2(block_num_addr, depth, size_needed))) {
 			// use result to set up
 			result->inode = file_inode_number;
 			result->name_len = strlen(file_name);
-			result->file_type = EXT2_FT_REG_FILE;
+			if (is_link) {
+				result->file_type = EXT2_FT_SYMLINK;
+			} else {
+				result->file_type = EXT2_FT_REG_FILE;
+			}
 			for (int j=0; j < result->name_len; j++) {
 				result->name[j] = file_name[j];
 			}
 			return;
 		}
 	}
+	// no space available
 	printf("Should not be here!\n");
 	return;
 }
 
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed) {
-	int degug = 0;
+	printf("create_directory_entry_walk_2\n");
+	//	int degug = 0;
 	// printf("DEBUG 0\n");
 	struct ext2_dir_entry_2 *result = NULL;
+	// entries per block
 	unsigned ints_per_block = EXT2_BLOCK_SIZE / sizeof(unsigned int);
 	// printf("The dir address is %p\n", block_num);
+	// if need indirection
 	if (depth) {
-		// printf("DEBUG 1\n");
-		if (*block_num) {
-			// the secondary directory entry blocks array is already initiated
-			unsigned int *blocks = (unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE);
-			int index = 0;
-			while (index < ints_per_block) {
-				result = create_directory_entry_walk_2(blocks + index, depth-1, size_needed);
-				if (result) {
-					return result;
-				}
-				index++;
-			} 
-			return NULL;
-		} else {
-			// initiate the secondary directory entry blocks array
+		if (!*block_num) {
+			// if not allocated, allocate space first
 			*block_num = allocate_data_block();
 			memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
-			return create_directory_entry_walk_2(
-				(unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE), 
-				depth-1, 
-				size_needed);
 		}
+		// printf("DEBUG 1\n");
+		// the secondary directory entry blocks array is already initiated
+		unsigned int *blocks = (unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE);
+		int index = 0;
+		// go through the block list
+		while (index < ints_per_block) {
+			result = create_directory_entry_walk_2(blocks + index, depth-1, size_needed);
+			if (result) {
+				return result;
+			}
+			index++;
+		} 
+		// no space available at the current directory entry
+		return NULL;
+		// } else {
+		// 	// initiate the secondary directory entry blocks array
+		// 	*block_num = allocate_data_block();
+
+		// 	memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
+		// 	return create_directory_entry_walk_2(
+		// 		(unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE), 
+		// 		depth-1, 
+		// 		size_needed);
 	} else {
 		// printf("DEBUG 2\n");
 		if (!*block_num) {
@@ -269,9 +389,9 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 		}
 		struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *) (disk + *block_num * EXT2_BLOCK_SIZE);
 		if (dir_entry->rec_len) {
-			// printf("DEBUG 3\n");
 			// the block has some entries
 			// find the last entry
+			// printf("DEBUG 3\n");
 			unsigned int size_used = dir_entry->rec_len;
 			while (size_used < EXT2_BLOCK_SIZE) {
 				dir_entry = (struct ext2_dir_entry_2 *) ((char *) dir_entry + dir_entry->rec_len);
@@ -284,6 +404,7 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 				dir_entry->rec_len = actual_last_entry_size;
 			}
 		} else {
+			// the block entry is newly created
 			// printf("DEBUG 4\n");
 			result = dir_entry;
 			result->rec_len = EXT2_BLOCK_SIZE;
@@ -293,6 +414,7 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 }
 
 char *get_file_name(char *path) {
+	printf("get_file_name\n");
 	char *path_copy = malloc(strlen(path) + 1);
 	strcpy(path_copy, path);
 	char *base_name = basename(path_copy);
@@ -303,6 +425,7 @@ char *get_file_name(char *path) {
 }
 
 unsigned int get_size_dir_entry(unsigned int path_length) {
+	printf("get_size_dir_entry\n");
 	path_length += 8;
 	if (path_length % 4) {
 		path_length += (4 - path_length % 4);
@@ -435,14 +558,14 @@ int block_taken(int index) {
 	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	return bitmap[sec] & mask;
+	return bitmap[(unsigned int) sec] & mask;
 }
 
 void set_block_bitmap(int index) {
 	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	bitmap[sec] |= mask;	
+	bitmap[(unsigned int) sec] |= mask;	
 }
 
 int allocate_inode() {
@@ -475,12 +598,13 @@ int inode_is_taken(int index) {
 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	return bitmap[sec] & mask;
+	return bitmap[(unsigned int) sec] & mask;
 }
 
 void set_inode_bitmap(int index) {
 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 	char sec = index / 8;
 	char mask = 1 << (index % 8);
-	bitmap[sec] |= mask;
+	printf("%u\n", (unsigned int) sec);
+	bitmap[(unsigned int) sec] |= mask;
 }
