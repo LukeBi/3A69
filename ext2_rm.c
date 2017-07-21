@@ -53,9 +53,11 @@ void remove_file(struct ext2_inode * pinode, struct ext2_inode * inode, char* to
 }
 
 void delete_inode(struct ext2_inode * inode){
-    inode->i_dtime = time(NULL);
-    flip_bit(inode_bitmap, inode_number(inode));
-    delete_inode_blocks(inode);
+    if(!(--(inode->i_links_count))){
+        inode->i_dtime = time(NULL);
+        flip_bit(inode_bitmap, inode_number(inode));
+        delete_inode_blocks(inode);
+    }
 }
 
 unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
@@ -128,7 +130,6 @@ void delete_inode_blocks(struct ext2_inode *inode){
         bptr = inode->i_block[i];
         if(bptr){
             if(i < 12){
-                printf("%s\n", "Block flip");
                 flip_bit(block_bitmap, bptr);
             }else{
                 delete_inode_block_indir(i - 12, inode->i_block[i]);
@@ -142,7 +143,6 @@ void delete_inode_block_indir(int depth, int block){
     if(depth == 0){
         for(int i = 0; i < 15; i++){
             if(inode[i]){
-                printf("%s\n", "Block flip");
                 flip_bit(block_bitmap, block);
             }
         }
@@ -159,6 +159,5 @@ void delete_inode_block_indir(int depth, int block){
 void flip_bit(unsigned char * bitmap, int index){
     unsigned char shift = 7;
     unsigned int pos = ~7;
-    printf("%s %d\n", "Flipping bit", --index);
     bitmap[(index & pos) >> 3] &= ~(1 << (index & shift));
 }
