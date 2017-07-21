@@ -16,7 +16,7 @@ readimagel : readimage_luke.c
 ext2_cp : ext2_cp.c
 	gcc ${FLAGS} -o $@ $^
     
-ext2_ln : ext2_cp.c
+ext2_ln : ext2_ln.c
 	gcc ${FLAGS} -o $@ $^
 
 trace :
