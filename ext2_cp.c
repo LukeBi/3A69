@@ -319,8 +319,9 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 	if (file_inode->i_size % 512) {
 		sector_needed++;
 		// should be even number
-		sector_needed += sector_needed % 2;
 	}
+	sector_needed += sector_needed % 2;
+
 
 	file_inode->i_blocks = sector_needed;
 	// printf("Inode %d with blocks(sectors) %d\n", file_inode_number, sector_needed);
