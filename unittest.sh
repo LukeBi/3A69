@@ -12,7 +12,7 @@ echo "Blocks: $blocks"
 ./print_block ./test_emptydisk.img 13376 $blocks > dd/readimg_keegan 
 DIFF=$(diff dd/readimg_keegan ./readimg_keegan)
 echo $DIFF
-if [ "DIFF" != "" ]; then
+if [ "$DIFF" = "" ]; then
 	echo -e "\n!!!Testing cp readimg_keegan: passed\n"
 else 
 	echo -e "\n!!!Testing cp readimg_keegan: failed\n"
@@ -26,8 +26,9 @@ echo "Blocks: $blocks"
 ./print_block ./test_emptydisk.img 13 $blocks > dd/test_small_file
 diff dd/small_file dd/test_small_file
 res=$?
-DIFF=$(diff dd/small_file dd/small_file)
-if [ "DIFF" != "" ]; then
+DIFF=$(diff dd/small_file dd/test_small_file)
+echo $DIFF
+if [ "$DIFF" = "" ]; then
 	echo -e "\n!!!Testing cp small_file: passed\n"
 else 
 	echo -e "\n!!!Testing cp small_file: failed\n"
@@ -59,14 +60,14 @@ if [ $? -eq 0 ] ; then
 else 
 	echo -e "\n!!! soft link file not found in disk: failed \n"
 fi
-filetype=$(./readimage_luke ./test_onedirectory.img  | grep "\[13\] type" | cut -d " " -f 3)
+filetype=$(./readimg_keegan ./test_onedirectory.img  | grep "\[13\] type" | cut -d " " -f 3)
 if [ $filetype = "l" ]; then
 	echo -e "\n!!!soft link file type correct: passed\n"
 else 
 	echo -e "\n!!!soft link file type correct: failed\n"
 	echo "Type $filetype"
 fi
-size=$(./readimage_luke ./test_onedirectory.img  | grep "\[13\] type" | cut -d " " -f5)
+size=$(./readimg_keegan ./test_onedirectory.img  | grep "\[13\] type" | cut -d " " -f5)
 if [ $size = "84" ]; then
 	echo -e "\n!!!soft link size correct: passed\n"
 else 
