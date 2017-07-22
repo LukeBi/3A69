@@ -76,3 +76,7 @@ struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode 
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed);
 void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link);
+unsigned int sector_needed_from_size(unsigned int file_size);
+void copy_content(char *source, char *dest, unsigned int length);
+void zero_terminate_block_array(int block_count, struct ext2_inode *inode, unsigned int *single_indirect);
+void init_inode(struct ext2_inode *inode, unsigned short mode, unsigned int size, unsigned short link_count, unsigned int block);

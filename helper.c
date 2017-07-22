@@ -14,7 +14,38 @@ void init(int fd){
     inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 }
 
+void init_inode(struct ext2_inode *inode, unsigned short mode, unsigned int size, unsigned short link_count, unsigned int block) {
+    inode->i_mode = mode;
+    inode->i_size = size;
+    inode->i_links_count = link_count;
+    inode->i_blocks = block;
+}
 
+void zero_terminate_block_array(int block_count, struct ext2_inode *inode, unsigned int *single_indirect) {
+    if (block_count <= 12) {
+        inode->i_block[block_count] = 0;
+    } else {
+        single_indirect[block_count - 12] = 0;
+    }
+    return;
+}
+
+void copy_content(char *source, char *dest, unsigned int length) {
+    for (int i=0; i < length; i++) {
+        dest[i] = source[i];
+    }
+}
+
+unsigned int sector_needed_from_size(unsigned int file_size) {
+    unsigned int sector_needed = file_size / 512;
+    // 512 bytes per sector
+    if (file_size % 512) {
+        sector_needed++;
+    }
+    // should be even number
+    sector_needed += sector_needed % 2;
+    return sector_needed;
+}
 /* 
  * Create a directory entry inside given directory inode, with given file inode number
  * and file name.

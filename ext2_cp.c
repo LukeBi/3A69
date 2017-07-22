@@ -113,13 +113,11 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		file_inode = &(inode_table[file_inode_number - 1]);
 		file_inode->i_links_count = 1;
 	}
-	// set type
-	file_inode->i_mode = EXT2_S_IFREG;
+
 
 	// get size
 	struct stat st;
 	lstat(local_file_path, &st);
-	file_inode->i_size = (unsigned int) st.st_size;
 
 	// copy file contents
 	FILE *fp;
@@ -130,15 +128,7 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 
 	// read one block at a time
  	char content_block[EXT2_BLOCK_SIZE];
- 	// sectors(512 bytes) needed 
-	unsigned int sector_needed = file_inode->i_size / 512;
-
-	if (file_inode->i_size % 512) {
-		sector_needed++;
-		// should be even number
-	}
-	sector_needed += sector_needed % 2;
-	file_inode->i_blocks = sector_needed;
+	unsigned int sector_needed = sector_needed_from_size(st.st_size);
 
 	// get indirect inode if needed	
 	unsigned int *single_indirect;
@@ -154,15 +144,23 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		}
 		// may should not to initialize all to 0
 	}
+	init_inode(file_inode, EXT2_S_IFREG, (unsigned int) st.st_size, file_inode->i_links_count, sector_needed);
+
+
+	// set type
+	// file_inode->i_mode = EXT2_S_IFREG;
+	// file_inode->i_blocks = sector_needed;
+	// file_inode->i_size = (unsigned int) st.st_size;
+
+
 
 	// start copying file contents
 	int block, num;
 	int block_count = 0;
-	char *block_pointer;
-	char create_new_ones = 0;
+	char create_new_ones = FALSE;
 	while (sector_needed > 0) {
 		if (create_new_ones || !file_inode->i_block[block_count]) {
-			create_new_ones = 1;
+			create_new_ones = TRUE;
 			block = allocate_data_block();
 
 			if (block_count < 12) {
@@ -179,23 +177,11 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		}
 
 		block_count++;
-
 		num = fread(content_block, 1, EXT2_BLOCK_SIZE, fp);
-		block_pointer = (char *) (disk + (block)* EXT2_BLOCK_SIZE);
-		// can't use strcpy because '\0'
-		for (int i=0; i < num; i++) {
-			block_pointer[i] = content_block[i];
-		}
+		copy_content(content_block, (char *) disk + block * EXT2_BLOCK_SIZE, num);
 		sector_needed -= 2;
 	}
 
-	// set the next data block bit to be zero incase previous file uses more than blocks
-	if (block_count <= 12) {
-		// no indirection
-		(file_inode->i_block)[block_count] = 0;
-	} else {
-		// indirection, set 0 start from index 1
-		single_indirect[block_count - 12] = 0;
-	}
+	zero_terminate_block_array(block_count, file_inode, single_indirect);
 }
 

@@ -145,18 +145,9 @@ unsigned int create_softlink_file(char *source_file_path) {
 	// allocate inode
 	unsigned int source_file_inode_number = allocate_inode();
 	struct ext2_inode *source_inode = &(inode_table[source_file_inode_number - 1]);
-
-	// set inode info
-	source_inode->i_mode = EXT2_S_IFLNK;
-	source_inode->i_size = strlen(source_file_path);
-	source_inode->i_links_count = 1;
-
-	unsigned int sector_needed = source_inode->i_size / 512;
-	if (source_inode->i_size % 512) {
-		sector_needed++;
-	}
-	sector_needed += sector_needed % 2;
-	source_inode->i_blocks = sector_needed;
+	unsigned int size = strlen(source_file_path);
+	unsigned int sector_needed = sector_needed_from_size(size);
+	init_inode(source_inode, EXT2_S_IFLNK, size, 1, sector_needed);
 	
 	// initiate indirect table if needed
 	unsigned int *single_indirect = NULL;
@@ -169,7 +160,6 @@ unsigned int create_softlink_file(char *source_file_path) {
 	unsigned int block_count = 0;
 	unsigned int index = 0;
 	unsigned int block, num;
-	char *block_pointer;
 	while (sector_needed > 0) {
 		// allocate content block
 		block = allocate_data_block();
@@ -179,28 +169,17 @@ unsigned int create_softlink_file(char *source_file_path) {
 			single_indirect[block_count - 12] = block;
 		}
 		block_count++;
-
-		block_pointer = (char *) (disk + block * EXT2_BLOCK_SIZE);
 		// determine the size to write
 		num = source_inode->i_size - index;
 		if (num > EXT2_BLOCK_SIZE) {
 			num = EXT2_BLOCK_SIZE;
 		}
 		// copy content
-		for (int i=0; i < num; i++) {
-			block_pointer[i] = source_file_path[index++];
-		}
-
+		copy_content(source_file_path + index, (char *) (disk + block * EXT2_BLOCK_SIZE), num);
+		index += num;
 		sector_needed -= 2;
 	}
-
-	// set 0 after the last used node
-	if (block_count <= 12) {
-		source_inode->i_block[block_count] = 0;
-	} else {
-		single_indirect[block_count - block_count] = 0;
-	}
-
+	zero_terminate_block_array(block_count, source_inode, single_indirect);
 	return source_file_inode_number;
 }
 
