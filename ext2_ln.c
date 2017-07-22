@@ -8,10 +8,10 @@ struct ext2_inode *get_inode_for_file_path(char *source_file_path);
 
 
 int main(int argc, char **argv) {
-	char *link_file_path;
-	char *source_file_path;
+	char *link_file_path = NULL;
+	char *source_file_path = NULL;
 	// flag for -s command
-	char soft_link = 0;
+	char soft_link = FALSE;
 	// check input argument
 	if (argc == 4) {
 		// create hard link
@@ -21,10 +21,9 @@ int main(int argc, char **argv) {
     	// create soft link
     	link_file_path = argv[3];
     	source_file_path = argv[4];
-    	soft_link = 1;
+    	soft_link = TRUE;
     } else {
-        fprintf(stderr, "Usage: ext2_ls <image file name> [-s] <link file path> <target absolute path>\n");
-        exit(1);
+    	show_error(EXT2LN, 1);
     }
 
 	// check if the disk image is valid
@@ -33,16 +32,13 @@ int main(int argc, char **argv) {
 
 	int path_index = 0;
 	char token[EXT2_NAME_LEN];
-
 	// first check if link file path exists and if it's valid
 	path_index = get_next_token(token, link_file_path, path_index);
 	if (path_index == -1) {
-		fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
-		return ENOENT;
+		show_error(DOESNOTEXIST, ENOENT);
 	}
 	if (strlen(link_file_path) == 1 && link_file_path[0] == '/') {
-		fprintf(stderr, "ln: %s: Directory exists\n", link_file_path);
-		return ENOENT;
+		show_error(ISADIRECTORY, EISDIR);
 	}
 
 	struct ext2_inode *current_inode = &(inode_table[EXT2_ROOT_INO - 1]);
@@ -54,8 +50,7 @@ int main(int argc, char **argv) {
 
 		if (path_index == -1) {
 			// path too long
-			fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
-			return ENOENT;
+			show_error(DOESNOTEXIST, ENOENT);
 		}
 
 		current_inode = find_inode_2(token, strlen(token), current_inode, inode_table, disk);
@@ -63,9 +58,7 @@ int main(int argc, char **argv) {
 			// reach not existing path component
 			if (path_index != size) {
 				// the component is in the middle of the path
-				printf("Here\n");
-				fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
-				return ENOENT;
+				show_error(DOESNOTEXIST, ENOENT);
 			} else {
 				// the component is at the end of the path
 				// the file path does not exist yet, but valid
@@ -83,9 +76,7 @@ int main(int argc, char **argv) {
 			if (path_index == size || path_index + 1 == size) {
 				// the component is at the end of path
 				// directory exists at link path
-				printf("HERE\n");
-				fprintf(stderr, "ln: %s: Directory exists\n", link_file_path);
-				return EISDIR;
+				show_error(ISADIRECTORY, EISDIR);
 			} else {
 				// read slash
 				path_index++;
@@ -96,12 +87,10 @@ int main(int argc, char **argv) {
 			// reach a file
 			if (path_index != size) {
 				// file in the middle of path -> invalid path
-				fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
-				return ENOENT;
+				show_error(DOESNOTEXIST, ENOENT);
 			} else {	
 				// file at the end of path, link file path already exists
-				fprintf(stderr, "ln: %s: File exists\n", link_file_path);
-				return EEXIST;
+				show_error(ALREADYEXIST, EEXIST);
 			}
 		}
 	}
@@ -113,15 +102,13 @@ int main(int argc, char **argv) {
  * 
  */
 int create_hard_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path) {
-	printf("create_hard_link\n");
 	// get source_file_inode at given path
 	struct ext2_inode *source_file_inode = get_inode_for_file_path(source_file_path);
 	if (source_file_inode) {
 		// source path is valid
 		if (source_file_inode->i_mode & EXT2_S_IFDIR) {
 			// source is directory
-			fprintf(stderr, "ln: %s: Directory exists\n", source_file_path);
-			return EISDIR;
+				show_error(ISADIRECTORY, EISDIR);
 		} else {
 			// source is file
 			unsigned int source_inode_number = inode_number(source_file_inode);
@@ -133,8 +120,7 @@ int create_hard_link(struct ext2_inode *dir_inode, char *link_file_path, char *s
 		}
 	} else {
 		// file path invalid
-		fprintf(stderr, "ln: %s: No such file or directory\n", link_file_path);
-		return ENOENT;
+		show_error(DOESNOTEXIST, ENOENT);
 	}
 	return 0;
 }
@@ -144,7 +130,6 @@ int create_hard_link(struct ext2_inode *dir_inode, char *link_file_path, char *s
  * source file path.
  */
 int create_soft_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path) {
-	printf("create_soft\n");
 	unsigned link_file_inode_number = create_softlink_file(source_file_path);
 	char *link_file_name = get_file_name(link_file_path);
 	create_directory_entry(dir_inode, link_file_inode_number, link_file_name, 1);	
@@ -157,10 +142,8 @@ int create_soft_link(struct ext2_inode *dir_inode, char *link_file_path, char *s
  * Return the inode number of the created file.
  */
 unsigned int create_softlink_file(char *source_file_path) {
-	printf("create_softlink_file\n");
 	// allocate inode
 	unsigned int source_file_inode_number = allocate_inode();
-	printf("Inode number is %d\n", source_file_inode_number);
 	struct ext2_inode *source_inode = &(inode_table[source_file_inode_number - 1]);
 
 	// set inode info
@@ -222,7 +205,6 @@ unsigned int create_softlink_file(char *source_file_path) {
 }
 
 struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
-	printf("get_inode_for_file_path\n");
 	int path_index = 0;
 	char token[EXT2_NAME_LEN];
 
@@ -238,24 +220,17 @@ struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
 	while (path_index < size) {
 		last_inode = current_inode;
 		path_index = get_next_token(token, source_file_path, path_index);
-
 		if (path_index == -1) {
 			// path too long
 			return NULL;
 		}
-
 		current_inode = find_inode_2(token, strlen(token), current_inode, inode_table, disk);
 		// reach not existing
-		if (!current_inode) {
+		if (!current_inode || ((current_inode->i_mode & EXT2_S_IFLNK) && path_index != size)) {
 			return NULL;
 		}
-
 		if (current_inode->i_mode & EXT2_S_IFDIR) {
 			path_index++;
-		}
-
-		if (current_inode->i_mode & EXT2_S_IFLNK && path_index != size) {
-			return NULL;
 		}
 	}
 

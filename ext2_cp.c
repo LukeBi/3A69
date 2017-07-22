@@ -19,11 +19,9 @@ int main(int argc, char **argv) {
 	char *disk_path = argv[3];
 	struct stat st;
 	if (lstat(local_file_path, &st)) {
-		perror("lstat");
-		return ENOENT;
+		show_error(DOESNOTEXIST, ENOENT);
 	} else if (st.st_mode & S_IFDIR) {
-		printf("%s is a directory\n", local_file_path);
-		return EISDIR;
+		show_error(ISADIRECTORY, EISDIR);
 	}
 
 	// check if disk_path is valid
@@ -45,44 +43,35 @@ int main(int argc, char **argv) {
  	// get root directory for absolute path
 	path_index = get_next_token(token, disk_path, path_index);
 	if(path_index == -1){
-		printf("No such file or directory\n");
-		return ENOENT;
+		show_error(DOESNOTEXIST, ENOENT);
 	}
 
 	struct ext2_inode *current_inode = &(inode_table[EXT2_ROOT_INO-1]);
-	// printf("%d\n", current_inode);
 	// record the last inode, since the path may point to a new path 
-	// (new file name)
 	struct ext2_inode *last_inode = current_inode;
   	int size = strlen(disk_path);
 	while (path_index < size) {
 		last_inode = current_inode;
 		path_index = get_next_token(token, disk_path, path_index);
 		if(path_index == -1){
-			// path invalid
-			printf("No such file or directory\n");
-			return ENOENT;
+			show_error(DOESNOTEXIST, ENOENT);
 		}
 
 		current_inode = find_inode_2(token, strlen(token), current_inode, inode_table, disk);
 		if (!current_inode) {
 			// file does not exist
 			if (path_index != size) {
-		  		printf("No such file or directory\n");
-		  		return ENOENT;
+				show_error(DOESNOTEXIST, ENOENT);
 			} else {
 				// case: the disk path has a new file name
-				printf("case: copy to new file path %s\n", disk_path);
 				break;
 			}
 		}
 
 		if(current_inode->i_mode & EXT2_S_IFDIR){
 			if (appended) {
-				printf("Cannot overwrite a directory\n");
-				exit(1);
+				show_error(ISADIRECTORY, EISDIR);
 			}
-			// the directory path may not end up with '/'
 			// check whether the disk path is a directory path
 			if (path_index == size || path_index+1 == size) {
 				// form the new file path for the file to be copied in
@@ -100,14 +89,10 @@ int main(int argc, char **argv) {
 		if(current_inode->i_mode & EXT2_S_IFLNK) {
 			if (path_index != size) {
 				// file occured in the middle of a path --> invalid path
-				printf("No such file or directory\n");
-      			return ENOENT;
+				show_error(DOESNOTEXIST, ENOENT);
 			} else {
 				// case: override the existing file
-				// no need to edit path
-				printf("case: overwritting file at path %s\n", disk_path);
 				create_file(-1, local_file_path, current_inode);
-				// no need to modify directory entry or allocate new inode
 				return 0;
 			}
 		}
@@ -153,11 +138,7 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		// should be even number
 	}
 	sector_needed += sector_needed % 2;
-
-
 	file_inode->i_blocks = sector_needed;
-	// printf("Inode %d with blocks(sectors) %d\n", file_inode_number, sector_needed);
-	// newly created file will have one link
 
 	// get indirect inode if needed	
 	unsigned int *single_indirect;
@@ -205,7 +186,6 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		for (int i=0; i < num; i++) {
 			block_pointer[i] = content_block[i];
 		}
-		printf("Num copied %d\n", num);
 		sector_needed -= 2;
 	}
 
@@ -217,8 +197,5 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		// indirection, set 0 start from index 1
 		single_indirect[block_count - 12] = 0;
 	}
-
 }
-
-
 

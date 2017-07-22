@@ -20,14 +20,12 @@ void init(int fd){
  * and file name.
  */
 void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link) {
-    printf("create_directory_entry\n");
     struct ext2_dir_entry_2 *result = NULL;
     unsigned size_needed = get_size_dir_entry(strlen(file_name));
     int depth;
     unsigned int *block_num_addr;
     for (int i=0; i < 15; i++) {
         block_num_addr = &(dir_inode->i_block[i]);
-        // printf("%p\n", block_num_addr);
         depth = (i >= 12) ? (i - 11):0;
         // get pointer for result directory entry
         if ((result = create_directory_entry_walk_2(block_num_addr, depth, size_needed))) {
@@ -52,18 +50,14 @@ void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inod
 
 
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed) {
-    // int degug = 0;
-    // printf("DEBUG 0\n");
     struct ext2_dir_entry_2 *result = NULL;
     unsigned ints_per_block = EXT2_BLOCK_SIZE / sizeof(unsigned int);
-    // printf("The dir address is %p\n", block_num);
     if (depth) {
         if (!*block_num) {
             // if not allocated, allocate space first
             *block_num = allocate_data_block();
             memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
         }
-        // printf("DEBUG 1\n");
         // the secondary directory entry blocks array is already initiated
         unsigned int *blocks = (unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE);
         int index = 0;
@@ -78,15 +72,12 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
         // no space available at the current directory entry
         return NULL;
     } else {
-        // printf("DEBUG 2\n");
         if (!*block_num) {
-            // printf("DEBUG %d\n", degug++);
             *block_num = allocate_data_block();
             memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
         }
         struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *) (disk + *block_num * EXT2_BLOCK_SIZE);
         if (dir_entry->rec_len) {
-            // printf("DEBUG 3\n");
             // the block has some entries
             // find the last entry
             unsigned int size_used = dir_entry->rec_len;
@@ -101,7 +92,6 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
                 dir_entry->rec_len = actual_last_entry_size;
             }
         } else {
-            // printf("DEBUG 4\n");
             result = dir_entry;
             result->rec_len = EXT2_BLOCK_SIZE;
         }
@@ -140,7 +130,6 @@ struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode 
   
   // Cycle through dir entries in the block
   while(dirptr != next_block){
-//      printf("Stuck here with rec_len %d\n", dir->rec_len);
     if(path_equal(name, size, dir)){
       return &(inode_table[dir->inode - 1]);
     }
