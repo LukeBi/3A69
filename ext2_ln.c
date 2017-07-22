@@ -18,14 +18,9 @@ unsigned int create_softlink_file(char *source_file_path);
 struct ext2_inode *get_inode_for_file_path(char *source_file_path);
 void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link);
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed);
-char *get_file_name(char *path);
-unsigned int get_size_dir_entry(unsigned int path_length);
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
 struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
 struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
-// int allocate_inode(void);
-// int inode_is_taken(int index); 
-// void set_inode_bitmap(int index);
 
 
 int main(int argc, char **argv) {
@@ -381,26 +376,6 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 	}
 }
 
-char *get_file_name(char *path) {
-	printf("get_file_name\n");
-	char *path_copy = malloc(strlen(path) + 1);
-	strcpy(path_copy, path);
-	char *base_name = basename(path_copy);
-	char *to_return = malloc(strlen(base_name) + 1);
-	strcpy(to_return, base_name);
-	free(path_copy);
-	return to_return;
-}
-
-unsigned int get_size_dir_entry(unsigned int path_length) {
-	printf("get_size_dir_entry\n");
-	path_length += 8;
-	if (path_length % 4) {
-		path_length += (4 - path_length % 4);
-	}
-	return path_length;
-}
-
 
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk){
   struct ext2_inode * inode_ptr = NULL;
@@ -468,44 +443,3 @@ struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int siz
  return inode_ptr; 
 }
 
-
-// int allocate_inode() {
-// 	int i = EXT2_GOOD_OLD_FIRST_INO;
-
-// 	if (!gd->bg_free_inodes_count) {
-// 		return -1;
-// 	}
-
-// 	// find empty slot from bit map
-// 	while (i < sb->s_inodes_count && inode_is_taken(i)) {
-// 		i++;
-// 	}
-
-// 	if (i == sb->s_inodes_count) {
-// 		// should not reach here
-// 		return -1;
-// 	}
-
-// 	set_inode_bitmap(i);
-// 	struct ext2_inode *inode_table = (struct ext2_inode *) (disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
-// 	memset(&(inode_table[i]), 0, sizeof(struct ext2_inode));
-// 	gd->bg_free_inodes_count--;
-
-// 	// return the inode number which is one larger than index
-// 	return i+1;
-// }
-
-// int inode_is_taken(int index) {
-// 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
-// 	char sec = index / 8;
-// 	char mask = 1 << (index % 8);
-// 	return bitmap[(unsigned int) sec] & mask;
-// }
-
-// void set_inode_bitmap(int index) {
-// 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
-// 	char sec = index / 8;
-// 	char mask = 1 << (index % 8);
-// 	printf("%u\n", (unsigned int) sec);
-// 	bitmap[(unsigned int) sec] |= mask;
-// }

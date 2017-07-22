@@ -14,6 +14,37 @@ void init(int fd){
     inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 }
 
+
+char *concat_system_path(char *dirpath, char *file_name) {
+    char has_slash = dirpath[strlen(dirpath)-1] == '/';
+    char *concatenated_path = malloc(strlen(dirpath) + strlen(file_name) + 1 + 1 - has_slash);
+    strcpy(concatenated_path, dirpath);
+    if (!has_slash) {
+        strcat(concatenated_path, "/");
+    }
+    strcat(concatenated_path, file_name);
+    return concatenated_path;
+}
+
+
+char *get_file_name(char *path) {
+    char *path_copy = malloc(strlen(path) + 1);
+    strcpy(path_copy, path);
+    char *base_name = basename(path_copy);
+    char *to_return = malloc(strlen(base_name) + 1);
+    strcpy(to_return, base_name);
+    free(path_copy);
+    return to_return;
+}
+
+unsigned int get_size_dir_entry(unsigned int path_length) {
+    path_length += 8;
+    if (path_length % 4) {
+        path_length += (4 - path_length % 4);
+    }
+    return path_length;
+}
+
 int allocate_inode() {
     int i = EXT2_GOOD_OLD_FIRST_INO;
     // check available inodes

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <libgen.h>
 #include "ext2.h"
 
 #define TRUE 1
@@ -63,3 +64,6 @@ int allocate_data_block(void);
 int allocate_inode(void);
 int inode_is_taken(int index);
 void set_inode_bitmap(int index);
+char *concat_system_path(char *dirpath, char *file_name);
+char *get_file_name(char *path);
+unsigned int get_size_dir_entry(unsigned int path_length);

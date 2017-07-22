@@ -3,28 +3,19 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <libgen.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <string.h>
 #include <errno.h>
 #include "ext2.h"
-#include "helper.h"
+#include "helperah"
 
 
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
 struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
 struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
-// int allocate_inode(void);
-// int allocate_data_block(void);
-// void set_block_bitmap(int index);
-// int inode_is_taken(int index);
-// void set_inode_bitmap(int index);
 void create_file(int file_inode_number, char *local_file_path, struct ext2_inode *file_inode);
 void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number, char *disk_path);
-char *get_file_name(char *path);
-unsigned int get_size_dir_entry(unsigned int path_length);
-char *concat_system_path(char *dirpath, char *file_name);
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed);
 
 
@@ -150,40 +141,11 @@ int main(int argc, char **argv) {
 }
 
 
-char *concat_system_path(char *dirpath, char *file_name) {
-	char has_slash = dirpath[strlen(dirpath)-1] == '/';
-	char *concatenated_path = malloc(strlen(dirpath) + strlen(file_name) + 1 + 1 - has_slash);
-	strcpy(concatenated_path, dirpath);
-	if (!has_slash) {
-		strcat(concatenated_path, "/");
-	}
-	strcat(concatenated_path, file_name);
-	return concatenated_path;
-}
-
-
-char *get_file_name(char *path) {
-	char *path_copy = malloc(strlen(path) + 1);
-	strcpy(path_copy, path);
-	char *base_name = basename(path_copy);
-	char *to_return = malloc(strlen(base_name) + 1);
-	strcpy(to_return, base_name);
-	free(path_copy);
-	return to_return;
-}
-
-
 void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number, char *disk_path) {
 	struct ext2_dir_entry_2 *result = NULL;
 	char *file_name = get_file_name(disk_path);
 	unsigned size_needed = get_size_dir_entry(strlen(file_name));
 	int depth;
-	// for (int i=0; i < 15; i++) {
-	// 	depth = (i >= 12) ? (i - 11):0;
-	// 	if (create_directory_entry_walk(dir_inode, i, depth, file_name, file_inode_number)) {
-	// 		return;
-	// 	}
-	// }
 	unsigned int *block_num_addr;
 	for (int i=0; i < 15; i++) {
 		block_num_addr = &(dir_inode->i_block[i]);
@@ -264,15 +226,6 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 		}
 		return result;
 	}
-}
-
-
-unsigned int get_size_dir_entry(unsigned int path_length) {
-	path_length += 8;
-	if (path_length % 4) {
-		path_length += (4 - path_length % 4);
-	}
-	return path_length;
 }
 
 
