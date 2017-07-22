@@ -24,7 +24,6 @@ struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode
 struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
 struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
 int allocate_data_block(void);
-int block_taken(int index);
 void set_block_bitmap(int index); 
 int allocate_inode(void);
 int inode_is_taken(int index); 
@@ -54,14 +53,7 @@ int main(int argc, char **argv) {
 
 	// check if the disk image is valid
     int fd = open(argv[1], O_RDWR);
-	disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	if(disk == MAP_FAILED) {
-		perror("mmap");
-		exit(1);
-	}
-	sb = (struct ext2_super_block *) (disk + EXT2_BLOCK_SIZE);
-	gd = (struct ext2_group_desc *)(disk + 2*EXT2_BLOCK_SIZE);
-	inode_table  = (struct ext2_inode *)(disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
+    init(fd);
 
 	int path_index = 0;
 	char token[EXT2_NAME_LEN];
@@ -500,12 +492,6 @@ int allocate_data_block() {
 	return i+1;
 }
 
-int block_taken(int index) {
-	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
-	char sec = index / 8;
-	char mask = 1 << (index % 8);
-	return bitmap[(unsigned int) sec] & mask;
-}
 
 void set_block_bitmap(int index) {
 	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);

@@ -55,3 +55,6 @@ int insert_entry_walk(int depth, int block, struct ext2_dir_entry_2 * insdir, in
 void init_dirent(struct ext2_dir_entry_2 * dir, unsigned int inode, unsigned short rec_len, unsigned char name_len, unsigned char file_type, char * name);
 void copy_dirent(struct ext2_dir_entry_2 *dir, struct ext2_dir_entry_2 *source, unsigned short rec_len);
 int inode_number(struct ext2_inode * inode);
+
+/* Changyu */
+int block_taken(int index);

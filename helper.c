@@ -14,6 +14,12 @@ void init(int fd){
     inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 }
 
+int block_taken(int index) {
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    return block_bitmap[(unsigned int) sec] & mask;
+}
+
 struct ext2_inode *fetch_last(char* filepath, char * token, char get_last){
     // Fetch root, error if path does not include root
     int path_index = 0;

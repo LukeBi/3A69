@@ -12,20 +12,16 @@
 #include "helper.h"
 
 
-// int get_next_token(char * token, char * path, int index);
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
 struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
-// int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir);
 struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
 int allocate_inode(void);
 int allocate_data_block(void);
-int block_taken(int index);
 void set_block_bitmap(int index);
 int inode_is_taken(int index);
 void set_inode_bitmap(int index);
 void create_file(int file_inode_number, char *local_file_path, struct ext2_inode *file_inode);
 void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number, char *disk_path);
-// struct ext2_dir_entry_2 * create_directory_entry_walk(struct ext2_inode *dir_inode, int index, int depth, char *file_name, int file_inode_number);
 char *get_file_name(char *path);
 unsigned int get_size_dir_entry(unsigned int path_length);
 char *concat_system_path(char *dirpath, char *file_name);
@@ -42,14 +38,7 @@ int main(int argc, char **argv) {
 
 	// check if the disk image is valid
     int fd = open(argv[1], O_RDWR);
-	disk = mmap(NULL, 128 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	if(disk == MAP_FAILED) {
-		perror("mmap");
-		exit(1);
-	}
-	sb = (struct ext2_super_block *) (disk + EXT2_BLOCK_SIZE);
-	gd = (struct ext2_group_desc *)(disk + 2*EXT2_BLOCK_SIZE);
-	inode_table  = (struct ext2_inode *)(disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
+	init(fd);
 
 	// check local file path is a valid file path
 	// local file should exist and not be a directory
@@ -150,7 +139,6 @@ int main(int argc, char **argv) {
 			}
 		}
 	}
-
 	// printf("Address of last inode: %d\n", last_inode);
 	// create the inode for file, and do file copy first
 	unsigned int file_inode_number = allocate_inode();
@@ -160,6 +148,7 @@ int main(int argc, char **argv) {
 
 	return 0;
 }
+
 
 char *concat_system_path(char *dirpath, char *file_name) {
 	char has_slash = dirpath[strlen(dirpath)-1] == '/';
@@ -172,6 +161,7 @@ char *concat_system_path(char *dirpath, char *file_name) {
 	return concatenated_path;
 }
 
+
 char *get_file_name(char *path) {
 	char *path_copy = malloc(strlen(path) + 1);
 	strcpy(path_copy, path);
@@ -181,6 +171,7 @@ char *get_file_name(char *path) {
 	free(path_copy);
 	return to_return;
 }
+
 
 void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number, char *disk_path) {
 	struct ext2_dir_entry_2 *result = NULL;
@@ -212,6 +203,7 @@ void create_directory_entry(struct ext2_inode *dir_inode, int file_inode_number,
 	printf("Should not be here!\n");
 	return;
 }
+
 
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed) {
 	// int degug = 0;
@@ -284,7 +276,6 @@ unsigned int get_size_dir_entry(unsigned int path_length) {
 }
 
 
-
 void create_file(int file_inode_number, char *local_file_path, struct ext2_inode *file_inode) {
 	if (!file_inode) {
 		// get the file inode`
@@ -321,7 +312,6 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 	file_inode->i_blocks = sector_needed;
 	// printf("Inode %d with blocks(sectors) %d\n", file_inode_number, sector_needed);
 	// newly created file will have one link
-
 
 	// get indirect inode if needed	
 	unsigned int *single_indirect;
@@ -400,17 +390,11 @@ int allocate_data_block() {
 	}
 
 	set_block_bitmap(i);
-	// memset((disk + EXT2_BLOCK_SIZE * (i+1)), 0, EXT2_BLOCK_SIZE);
 	gd->bg_free_blocks_count--;
 	return i+1;
 }
 
-int block_taken(int index) {
-	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
-	char sec = index / 8;
-	char mask = 1 << (index % 8);
-	return bitmap[(unsigned int) sec] & mask;
-}
+
 
 void set_block_bitmap(int index) {
 	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
@@ -459,29 +443,6 @@ void set_inode_bitmap(int index) {
 	bitmap[(unsigned int) sec] |= mask;
 }
 
-// int get_next_token(char * token, char * path, int index){
-//   if(index == 0){
-//     if(path[index] == '/'){
-//       token[0] = '/';
-//       token[1] = '\0';
-//       return 1;
-//     }else{
-//       return -1;
-//     }
-//   }
-//   int t_i = 0;
-//   while(path[index] != '\0' && path[index] != '/'){
-//     if(t_i == EXT2_NAME_LEN){
-//       return -1;
-//     }
-//     token[t_i] = path[index];
-//     ++t_i;
-//     ++index;
-//   }
-//   token[t_i] = '\0';
-//   return index;
-// }
-
 
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk){
   struct ext2_inode * inode_ptr = NULL;
@@ -523,15 +484,6 @@ struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode 
   return NULL;
 }
 
-// int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir){
-//   int true = size == dir->name_len;
-//   int index = 0;
-//   while(index < size && true){
-//     true = true && (path[index] == dir->name[index]);
-//     ++index;
-//   }
-//   return true;
-// }
 
 struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk){
   struct ext2_inode * inode_ptr = NULL;
