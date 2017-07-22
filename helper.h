@@ -58,3 +58,8 @@ int inode_number(struct ext2_inode * inode);
 
 /* Changyu */
 int block_taken(int index);
+void set_block_bitmap(int index);
+int allocate_data_block(void);
+int allocate_inode(void);
+int inode_is_taken(int index);
+void set_inode_bitmap(int index);

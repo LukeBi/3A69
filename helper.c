@@ -14,10 +14,75 @@ void init(int fd){
     inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 }
 
+int allocate_inode() {
+    int i = EXT2_GOOD_OLD_FIRST_INO;
+    // check available inodes
+    if (!gd->bg_free_inodes_count) {
+        return -1;
+    }
+    // find empty slot from bit map
+    while (i < sb->s_inodes_count && inode_is_taken(i)) {
+        i++;
+    }
+    if (i == sb->s_inodes_count) {
+        // should not reach here
+        return -1;
+    }
+    // set bit map, update count and initialize the inode
+    set_inode_bitmap(i);
+    memset(&(inode_table[i]), 0, sizeof(struct ext2_inode));
+    gd->bg_free_inodes_count--;
+    // inode starts at 1
+    return i+1;
+}
+
+int inode_is_taken(int index) {
+    // char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    return inode_bitmap[(unsigned int)sec] & mask;
+}
+
+void set_inode_bitmap(int index) {
+    // char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    inode_bitmap[(unsigned int) sec] |= mask;
+}
+
 int block_taken(int index) {
     char sec = index / 8;
     char mask = 1 << (index % 8);
     return block_bitmap[(unsigned int) sec] & mask;
+}
+
+int allocate_data_block() {
+    // see if there are free blocks
+    if (!gd->bg_free_blocks_count) {
+        return -1;
+    }
+    // find free block
+    int i=0;
+    while (i < sb->s_blocks_count && block_taken(i)) {
+        i++;
+    }
+    if (i == sb->s_blocks_count) {
+        // should not be here
+        return -1;
+    }
+
+    // set bit map and update count
+    set_block_bitmap(i);
+    gd->bg_free_blocks_count--;
+    // block number starts at 1
+    return i+1;
+}
+
+void set_block_bitmap(int index) {
+    // char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    block_bitmap[(unsigned int) sec] |= mask;
 }
 
 struct ext2_inode *fetch_last(char* filepath, char * token, char get_last){

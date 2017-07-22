@@ -23,12 +23,9 @@ unsigned int get_size_dir_entry(unsigned int path_length);
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
 struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
 struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
-int allocate_data_block(void);
-void set_block_bitmap(int index); 
-int allocate_inode(void);
-int inode_is_taken(int index); 
-void set_inode_bitmap(int index);
-
+// int allocate_inode(void);
+// int inode_is_taken(int index); 
+// void set_inode_bitmap(int index);
 
 
 int main(int argc, char **argv) {
@@ -471,72 +468,44 @@ struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int siz
  return inode_ptr; 
 }
 
-int allocate_data_block() {
-	if (!gd->bg_free_blocks_count) {
-		return -1;
-	}
 
-	int i=0;
-	while (i < sb->s_blocks_count && block_taken(i)) {
-		i++;
-	}
+// int allocate_inode() {
+// 	int i = EXT2_GOOD_OLD_FIRST_INO;
 
-	if (i == sb->s_blocks_count) {
-		// should not be here
-		return -1;
-	}
+// 	if (!gd->bg_free_inodes_count) {
+// 		return -1;
+// 	}
 
-	set_block_bitmap(i);
-	// memset((disk + EXT2_BLOCK_SIZE * (i+1)), 0, EXT2_BLOCK_SIZE);
-	gd->bg_free_blocks_count--;
-	return i+1;
-}
+// 	// find empty slot from bit map
+// 	while (i < sb->s_inodes_count && inode_is_taken(i)) {
+// 		i++;
+// 	}
 
+// 	if (i == sb->s_inodes_count) {
+// 		// should not reach here
+// 		return -1;
+// 	}
 
-void set_block_bitmap(int index) {
-	char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
-	char sec = index / 8;
-	char mask = 1 << (index % 8);
-	bitmap[(unsigned int) sec] |= mask;	
-}
+// 	set_inode_bitmap(i);
+// 	struct ext2_inode *inode_table = (struct ext2_inode *) (disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
+// 	memset(&(inode_table[i]), 0, sizeof(struct ext2_inode));
+// 	gd->bg_free_inodes_count--;
 
-int allocate_inode() {
-	int i = EXT2_GOOD_OLD_FIRST_INO;
+// 	// return the inode number which is one larger than index
+// 	return i+1;
+// }
 
-	if (!gd->bg_free_inodes_count) {
-		return -1;
-	}
+// int inode_is_taken(int index) {
+// 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+// 	char sec = index / 8;
+// 	char mask = 1 << (index % 8);
+// 	return bitmap[(unsigned int) sec] & mask;
+// }
 
-	// find empty slot from bit map
-	while (i < sb->s_inodes_count && inode_is_taken(i)) {
-		i++;
-	}
-
-	if (i == sb->s_inodes_count) {
-		// should not reach here
-		return -1;
-	}
-
-	set_inode_bitmap(i);
-	struct ext2_inode *inode_table = (struct ext2_inode *) (disk + gd->bg_inode_table * EXT2_BLOCK_SIZE);
-	memset(&(inode_table[i]), 0, sizeof(struct ext2_inode));
-	gd->bg_free_inodes_count--;
-
-	// return the inode number which is one larger than index
-	return i+1;
-}
-
-int inode_is_taken(int index) {
-	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
-	char sec = index / 8;
-	char mask = 1 << (index % 8);
-	return bitmap[(unsigned int) sec] & mask;
-}
-
-void set_inode_bitmap(int index) {
-	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
-	char sec = index / 8;
-	char mask = 1 << (index % 8);
-	printf("%u\n", (unsigned int) sec);
-	bitmap[(unsigned int) sec] |= mask;
-}
+// void set_inode_bitmap(int index) {
+// 	char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+// 	char sec = index / 8;
+// 	char mask = 1 << (index % 8);
+// 	printf("%u\n", (unsigned int) sec);
+// 	bitmap[(unsigned int) sec] |= mask;
+// }
