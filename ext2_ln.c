@@ -9,26 +9,20 @@
 #include <string.h>
 #include <errno.h>
 #include "ext2.h"
+#include "helper.h"
 
-unsigned char *disk;
-struct ext2_group_desc *gd;
-struct ext2_inode *inode_table;  
-struct ext2_super_block *sb;
 
 int create_hard_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path);
 int create_soft_link(struct ext2_inode *dir_inode, char *link_file_path, char *source_file_path);
 unsigned int create_softlink_file(char *source_file_path);
-unsigned int inode_number(struct ext2_inode *inode_ptr);
 struct ext2_inode *get_inode_for_file_path(char *source_file_path);
 void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link);
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed);
 char *get_file_name(char *path);
 unsigned int get_size_dir_entry(unsigned int path_length);
-int get_next_token(char * token, char * path, int index);
-struct ext2_inode * find_inode(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
-struct ext2_inode * find_inode_block(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
-int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir);
-struct ext2_inode * find_inode_walk(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
+struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
+struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
+struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
 int allocate_data_block(void);
 int block_taken(int index);
 void set_block_bitmap(int index); 
@@ -96,7 +90,7 @@ int main(int argc, char **argv) {
 			return ENOENT;
 		}
 
-		current_inode = find_inode(token, strlen(token), current_inode, inode_table, disk);
+		current_inode = find_inode_2(token, strlen(token), current_inode, inode_table, disk);
 		if (!current_inode) {
 			// reach not existing path component
 			if (path_index != size) {
@@ -259,12 +253,6 @@ unsigned int create_softlink_file(char *source_file_path) {
 	return source_file_inode_number;
 }
 
-unsigned int inode_number(struct ext2_inode *inode_ptr) {
-	printf("inode_number\n");
-	return (unsigned int)(inode_ptr - inode_table) + 1;
-	// return ((inode_ptr - inode_table) / sizeof(struct ext2_inode)) + 1;
-}
-
 struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
 	printf("get_inode_for_file_path\n");
 	int path_index = 0;
@@ -288,7 +276,7 @@ struct ext2_inode *get_inode_for_file_path(char *source_file_path) {
 			return NULL;
 		}
 
-		current_inode = find_inode(token, strlen(token), current_inode, inode_table, disk);
+		current_inode = find_inode_2(token, strlen(token), current_inode, inode_table, disk);
 		// reach not existing
 		if (!current_inode) {
 			return NULL;
@@ -371,15 +359,6 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 		} 
 		// no space available at the current directory entry
 		return NULL;
-		// } else {
-		// 	// initiate the secondary directory entry blocks array
-		// 	*block_num = allocate_data_block();
-
-		// 	memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
-		// 	return create_directory_entry_walk_2(
-		// 		(unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE), 
-		// 		depth-1, 
-		// 		size_needed);
 	} else {
 		// printf("DEBUG 2\n");
 		if (!*block_num) {
@@ -433,43 +412,20 @@ unsigned int get_size_dir_entry(unsigned int path_length) {
 	return path_length;
 }
 
-int get_next_token(char * token, char * path, int index){
-  if(index == 0){
-    if(path[index] == '/'){
-      token[0] = '/';
-      token[1] = '\0';
-      return 1;
-    }else{
-      return -1;
-    }
-  }
-  int t_i = 0;
-  while(path[index] != '\0' && path[index] != '/'){
-    if(t_i == EXT2_NAME_LEN){
-      return -1;
-    }
-    token[t_i] = path[index];
-    ++t_i;
-    ++index;
-  }
-  token[t_i] = '\0';
-  return index;
-}
 
-
-struct ext2_inode * find_inode(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk){
+struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk){
   struct ext2_inode * inode_ptr = NULL;
   unsigned int bptr;
   for(int i = 0; i < 15; i++){
     bptr = inode->i_block[i];
     if(bptr){
       if(i < 12){
-        inode_ptr = find_inode_block(name, size, inode_table, disk, bptr);
+        inode_ptr = find_inode_block_2(name, size, inode_table, disk, bptr);
         if(inode_ptr){
           return inode_ptr;
         }
       }else{
-        inode_ptr = find_inode_walk(i - 12, inode->i_block[i], name, size, inode_table, disk);
+        inode_ptr = find_inode_walk_2(i - 12, inode->i_block[i], name, size, inode_table, disk);
         if(inode_ptr){
           return inode_ptr;
         }
@@ -479,7 +435,7 @@ struct ext2_inode * find_inode(char * name, int size, struct ext2_inode *inode, 
   return inode_ptr;
 }
 
-struct ext2_inode * find_inode_block(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block){
+struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block){
   // Init dir entry vars in the block
   char * dirptr = (char *)(disk + block * EXT2_BLOCK_SIZE);
   char * next_block = dirptr + EXT2_BLOCK_SIZE;
@@ -497,23 +453,13 @@ struct ext2_inode * find_inode_block(char * name, int size, struct ext2_inode *i
   return NULL;
 }
 
-int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir){
-  int true = size == dir->name_len;
-  int index = 0;
-  while(index < size && true){
-    true = true && (path[index] == dir->name[index]);
-    ++index;
-  }
-  return true;
-}
-
-struct ext2_inode * find_inode_walk(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk){
+struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk){
   struct ext2_inode * inode_ptr = NULL;
   unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
   if(depth == 0){
     for(int i = 0; i < 15; i++){
       if(inode[i]){
-        inode_ptr = find_inode_block(name, size, inode_table, disk, inode[i]);
+        inode_ptr = find_inode_block_2(name, size, inode_table, disk, inode[i]);
         if(inode_ptr){
           return inode_ptr;
         }
@@ -522,7 +468,7 @@ struct ext2_inode * find_inode_walk(int depth, int block, char * name, int size,
   } else {
     for(int i = 0; i < 15; i++){
       if(inode[i]){
-        inode_ptr = find_inode_walk(depth - 1, inode[i], name, size, inode_table, disk);
+        inode_ptr = find_inode_walk_2(depth - 1, inode[i], name, size, inode_table, disk);
         if(inode_ptr){
           return inode_ptr;
         }
