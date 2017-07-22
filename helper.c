@@ -134,7 +134,7 @@ struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, 
 struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk){
   struct ext2_inode * inode_ptr = NULL;
   unsigned int bptr;
-  for(int i = 0; i < 15; i++){
+  for(int i = 0; i < 15; i++) {
     bptr = inode->i_block[i];
     if(bptr){
       if(i < 12){
@@ -299,6 +299,15 @@ void set_block_bitmap(int index) {
     block_bitmap[(unsigned int) sec] |= mask;
 }
 
+/*
+ * Return the inode at the given file path.
+ * If get_last flag is off, will return the last valid inode if the path
+ * is a valid new file path.
+ * If get_last flag is on, will only return inode if the path is valid. 
+ * Special case: when flag is false, and path is root, will return NULL.
+ * Will raise path invalid error if error occurred otherwise.
+ *
+ */
 struct ext2_inode *fetch_last(char* filepath, char * token, char get_last){
     // Fetch root, error if path does not include root
     int path_index = 0;
