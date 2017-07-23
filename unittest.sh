@@ -17,6 +17,13 @@ if [ "$DIFF" = "" ]; then
 else 
 	echo -e "\n!!!Testing cp readimg_keegan: failed\n"
 fi
+./readimg_keegan test_emptydisk.img | grep -q "name=test_cp_readimg_keegan"
+if [ $? -eq 0 ] ; then
+	echo -e "\n!!! file name test_cp_readimg_keegan found: passed\n"
+else 
+	echo -e "\n!!! file name test_cp_readimg_keegan found: failed\n"
+fi
+
 
 echo -e "Testing cp with small file dd/small_file with to /"
 echo "test content" > dd/small_file
@@ -32,6 +39,12 @@ if [ "$DIFF" = "" ]; then
 	echo -e "\n!!!Testing cp small_file: passed\n"
 else 
 	echo -e "\n!!!Testing cp small_file: failed\n"
+fi
+./readimg_keegan test_emptydisk.img | grep -q "name=small_file"
+if [ $? -eq 0 ] ; then
+	echo -e "\n!!! file name small_file found: passed\n"
+else 
+	echo -e "\n!!! file name small_file found: failed\n"
 fi
 
 

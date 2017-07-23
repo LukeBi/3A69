@@ -24,6 +24,8 @@
 #define EXT2LN 13
 #define EXT2CP 14
 
+
+
 unsigned char * disk;
 struct ext2_super_block *sb;
 struct ext2_group_desc *gd;
@@ -71,9 +73,6 @@ void set_inode_bitmap(int index);
 char *concat_system_path(char *dirpath, char *file_name);
 char *get_file_name(char *path);
 unsigned int get_size_dir_entry(unsigned int path_length);
-struct ext2_inode * find_inode_walk_2(int depth, int block, char * name, int size, struct ext2_inode *inode_table, unsigned char * disk);
-struct ext2_inode * find_inode_block_2(char * name, int size, struct ext2_inode *inode_table, unsigned char * disk, unsigned int block);
-struct ext2_inode * find_inode_2(char * name, int size, struct ext2_inode *inode, struct ext2_inode *inode_table, unsigned char * disk);
 struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed);
 void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link);
 unsigned int sector_needed_from_size(unsigned int file_size);
