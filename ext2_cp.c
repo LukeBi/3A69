@@ -100,9 +100,10 @@ int main(int argc, char **argv) {
 	// create the inode for file, and do file copy first
 	unsigned int file_inode_number = allocate_inode();
 	create_file(file_inode_number, local_file_path, NULL);
+	char *file_name = get_file_name(disk_path);
 	// then create directory entry in the directory
-	create_directory_entry(last_inode, file_inode_number, disk_path, 0);
-
+	create_directory_entry(last_inode, file_inode_number, file_name, 0);
+	free(file_name);
 	return 0;
 }
 
