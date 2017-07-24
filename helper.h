@@ -62,6 +62,14 @@ int insert_entry_walk(int depth, int block, struct ext2_dir_entry_2 * insdir, in
 void init_dirent(struct ext2_dir_entry_2 * dir, unsigned int inode, unsigned short rec_len, unsigned char name_len, unsigned char file_type, char * name);
 void copy_dirent(struct ext2_dir_entry_2 *dir, struct ext2_dir_entry_2 *source, unsigned short rec_len);
 int inode_number(struct ext2_inode * inode);
+void remove_file(struct ext2_inode * pinode, struct ext2_inode * inode, char* token);
+void delete_inode(struct ext2_inode * inode);
+void delete_inode_blocks(struct ext2_inode *inode);
+void delete_inode_block_indir(int depth, int block);
+void flip_bit(unsigned char * bitmap, int index);
+unsigned int remove_direntry(struct ext2_inode * pinode, char * token);
+void delete_block_from(struct ext2_inode *inode, unsigned int block);
+void delete_block_from_indir(int depth, int block, unsigned int delblock);
 
 /* Changyu */
 int block_taken(int index);
