@@ -179,6 +179,7 @@ int allocate_inode() {
     set_inode_bitmap(i);
     memset(&(inode_table[i]), 0, sizeof(struct ext2_inode));
     gd->bg_free_inodes_count--;
+    sb->s_free_inodes_count--;
     // inode starts at 1
     return i+1;
 }
@@ -221,6 +222,7 @@ int allocate_data_block() {
     // set bit map and update count
     set_block_bitmap(i);
     gd->bg_free_blocks_count--;
+    sb->s_free_blocks_count--;
     // block number starts at 1
     return i+1;
 }
