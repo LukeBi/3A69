@@ -1,8 +1,6 @@
 #include "helper.h"
 
-
 void create_file(int file_inode_number, char *local_file_path, struct ext2_inode *file_inode);
-
 
 int main(int argc, char **argv) {
 	if (argc != 4) {
@@ -24,41 +22,44 @@ int main(int argc, char **argv) {
 
 	char token[EXT2_NAME_LEN];
 	struct ext2_inode *disk_inode = fetch_last(disk_path, token, FALSE);
-	int file_inode_number = -1;
+	int file_inode_number = 0;
 	struct ext2_inode* parent_dir_inode = disk_inode;
-	char *result_file_name = NULL;
+	char *result_file_name_source = local_file_path;
+	struct ext2_inode *argument_inode = NULL;
 	if (disk_inode) {
+		// path is only root
 		struct ext2_inode *file_inode = find_inode(token, strlen(token), disk_inode);
 		if (file_inode) {
 			if (file_inode->i_mode & EXT2_S_IFDIR) {
-				file_inode_number = allocate_inode();
-				create_file(file_inode_number, local_file_path, NULL);
+				// valid directory path on image
 				parent_dir_inode = file_inode;
-				result_file_name = get_file_name(local_file_path);
 			} else if (disk_path[strlen(disk_path) != '/']) {
+				// valid file path
 				file_inode_number = inode_number(file_inode);
-				create_file(-1, local_file_path, file_inode);
-				result_file_name = get_file_name(disk_path);
+				argument_inode = file_inode;
+				result_file_name_source = disk_path;
 			} else {
+				// invalid path (has '/' at the end)
 				show_error(DOESNOTEXIST, ENOENT);
 			}
 		} else {
 			if (disk_path[strlen(disk_path) != '/']) {
-				file_inode_number = allocate_inode();
-				create_file(file_inode_number, local_file_path, NULL);
-				result_file_name = get_file_name(disk_path);
+				// valid new file path
+				result_file_name_source = disk_path;
 			} else {
+				// invalid path
 				show_error(DOESNOTEXIST, ENOENT);
 			}
 		}
 	} else {
-		file_inode_number = allocate_inode();
-		create_file(file_inode_number, local_file_path, NULL);
-		result_file_name = get_file_name(local_file_path);
+		// path is root
 		parent_dir_inode = &(inode_table[EXT2_ROOT_INO-1]);
 	}
-	create_directory_entry(parent_dir_inode, file_inode_number, result_file_name, FALSE);
-
+	if (!file_inode_number) {
+		file_inode_number = allocate_inode();
+	}
+	create_file(file_inode_number, local_file_path, argument_inode);
+	create_directory_entry(parent_dir_inode, file_inode_number, get_file_name(result_file_name_source), FALSE);
 	return 0;
 }
 
@@ -69,22 +70,18 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		file_inode = &(inode_table[file_inode_number - 1]);
 		file_inode->i_links_count = 1;
 	}
-
 	// get size
 	struct stat st;
 	lstat(local_file_path, &st);
-
 	// copy file contents
 	FILE *fp;
 	if (!(fp = fopen(local_file_path, "rb"))) {
 		perror("fopen");
 		exit(1);
 	} 
-
 	// read one block at a time
  	char content_block[EXT2_BLOCK_SIZE];
 	unsigned int sector_needed = sector_needed_from_size(st.st_size);
-
 	// get indirect inode if needed	
 	unsigned int *single_indirect;
 	char clear = 0;
@@ -100,7 +97,6 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		// may should not to initialize all to 0
 	}
 	init_inode(file_inode, EXT2_S_IFREG, (unsigned int) st.st_size, file_inode->i_links_count, sector_needed);
-
 	// start copying file contents
 	int block, num;
 	int block_count = 0;
@@ -109,7 +105,6 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 		if (create_new_ones || !file_inode->i_block[block_count]) {
 			create_new_ones = TRUE;
 			block = allocate_data_block();
-
 			if (block_count < 12) {
 				(file_inode->i_block)[block_count] = block;
 			} else {
@@ -122,13 +117,11 @@ void create_file(int file_inode_number, char *local_file_path, struct ext2_inode
 				block = single_indirect[block_count-12];
 			}
 		}
-
 		block_count++;
 		num = fread(content_block, 1, EXT2_BLOCK_SIZE, fp);
 		copy_content(content_block, (char *) disk + block * EXT2_BLOCK_SIZE, num);
 		sector_needed -= 2;
 	}
-
 	zero_terminate_block_array(block_count, file_inode, single_indirect);
 }
 
