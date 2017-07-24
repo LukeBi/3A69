@@ -34,7 +34,22 @@ int main(int argc, char **argv) {
 
     if (!parent_dir_of_link) {
         show_error(ALREADYEXIST, EEXIST);    
+    } else if (link_file_path[strlen(link_file_path) - 1] == '/') {
+    	// path has / at the end
+    	struct ext2_inode *n_ptr = find_inode(token, strlen(token), parent_dir_of_link);
+    	if (!n_ptr || n_ptr->i_mode & EXT2_S_IFLNK) {
+    		// path invalid
+    		show_error(DOESNOTEXIST, ENOENT);
+    	} else {
+    		// directory exists 
+    		show_error(ALREADYEXIST, EEXIST);
+    	}
+    } else if (find_inode(token, strlen(token), parent_dir_of_link)) {
+    		// link path exists
+    		show_error(ALREADYEXIST, EEXIST);
+    	}
     }
+
     if (soft_link) {
     	create_soft_link(parent_dir_of_link, link_file_path, source_file_path);
     } else {
