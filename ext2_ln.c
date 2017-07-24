@@ -47,7 +47,6 @@ int main(int argc, char **argv) {
     } else if (find_inode(token, strlen(token), parent_dir_of_link)) {
     		// link path exists
     		show_error(ALREADYEXIST, EEXIST);
-    	}
     }
 
     if (soft_link) {
