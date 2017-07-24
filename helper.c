@@ -14,6 +14,233 @@ void init(int fd){
     inode_bitmap = disk + (gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
 }
 
+void init_inode(struct ext2_inode *inode, unsigned short mode, unsigned int size, unsigned short link_count, unsigned int block) {
+    inode->i_mode = mode;
+    inode->i_size = size;
+    inode->i_links_count = link_count;
+    inode->i_blocks = block;
+}
+
+void zero_terminate_block_array(int block_count, struct ext2_inode *inode, unsigned int *single_indirect) {
+    if (block_count <= 12) {
+        inode->i_block[block_count] = 0;
+    } else {
+        single_indirect[block_count - 12] = 0;
+    }
+    return;
+}
+
+void copy_content(char *source, char *dest, unsigned int length) {
+    for (int i=0; i < length; i++) {
+        dest[i] = source[i];
+    }
+}
+
+unsigned int sector_needed_from_size(unsigned int file_size) {
+    unsigned int sector_needed = file_size / 512;
+    // 512 bytes per sector
+    if (file_size % 512) {
+        sector_needed++;
+    }
+    // should be even number
+    sector_needed += sector_needed % 2;
+    return sector_needed;
+}
+/* 
+ * Create a directory entry inside given directory inode, with given file inode number
+ * and file name.
+ */
+void create_directory_entry(struct ext2_inode *dir_inode, unsigned int file_inode_number, char *file_name, char is_link) {
+    struct ext2_dir_entry_2 *result = NULL;
+    unsigned size_needed = get_size_dir_entry(strlen(file_name));
+    int depth;
+    unsigned int *block_num_addr;
+    for (int i=0; i < 15; i++) {
+        block_num_addr = &(dir_inode->i_block[i]);
+        depth = (i >= 12) ? (i - 11):0;
+        // get pointer for result directory entry
+        if ((result = create_directory_entry_walk_2(block_num_addr, depth, size_needed))) {
+            // use result to set up
+            result->inode = file_inode_number;
+            result->name_len = strlen(file_name);
+            if (is_link) {
+                result->file_type = EXT2_FT_SYMLINK;
+            } else {
+                result->file_type = EXT2_FT_REG_FILE;
+            }
+            for (int j=0; j < result->name_len; j++) {
+                result->name[j] = file_name[j];
+            }
+            return;
+        }
+    }
+    // no space available
+    printf("Should not be here!\n");
+    return;
+}
+
+
+struct ext2_dir_entry_2 *create_directory_entry_walk_2(unsigned int *block_num, unsigned int depth, unsigned int size_needed) {
+    struct ext2_dir_entry_2 *result = NULL;
+    unsigned ints_per_block = EXT2_BLOCK_SIZE / sizeof(unsigned int);
+    if (depth) {
+        if (!*block_num) {
+            // if not allocated, allocate space first
+            *block_num = allocate_data_block();
+            memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
+        }
+        // the secondary directory entry blocks array is already initiated
+        unsigned int *blocks = (unsigned int *) (disk + *block_num * EXT2_BLOCK_SIZE);
+        int index = 0;
+        // go through the block list
+        while (index < ints_per_block) {
+            result = create_directory_entry_walk_2(blocks + index, depth-1, size_needed);
+            if (result) {
+                return result;
+            }
+            index++;
+        } 
+        // no space available at the current directory entry
+        return NULL;
+    } else {
+        if (!*block_num) {
+            *block_num = allocate_data_block();
+            memset((disk + *block_num * EXT2_BLOCK_SIZE), 0, EXT2_BLOCK_SIZE);
+        }
+        struct ext2_dir_entry_2 *dir_entry = (struct ext2_dir_entry_2 *) (disk + *block_num * EXT2_BLOCK_SIZE);
+        if (dir_entry->rec_len) {
+            // the block has some entries
+            // find the last entry
+            unsigned int size_used = dir_entry->rec_len;
+            while (size_used < EXT2_BLOCK_SIZE) {
+                dir_entry = (struct ext2_dir_entry_2 *) ((char *) dir_entry + dir_entry->rec_len);
+                size_used += dir_entry->rec_len;
+            }
+            unsigned int actual_last_entry_size = get_size_dir_entry(dir_entry->name_len);
+            if (dir_entry->rec_len >= actual_last_entry_size + size_needed) {
+                result = (struct ext2_dir_entry_2 *) ((char *) dir_entry + actual_last_entry_size);
+                result->rec_len = dir_entry->rec_len - actual_last_entry_size;
+                dir_entry->rec_len = actual_last_entry_size;
+            }
+        } else {
+            result = dir_entry;
+            result->rec_len = EXT2_BLOCK_SIZE;
+        }
+        return result;
+    }
+}
+
+
+char *concat_system_path(char *dirpath, char *file_name) {
+    char has_slash = dirpath[strlen(dirpath)-1] == '/';
+    char *concatenated_path = malloc(strlen(dirpath) + strlen(file_name) + 1 + 1 - has_slash);
+    strcpy(concatenated_path, dirpath);
+    if (!has_slash) {
+        strcat(concatenated_path, "/");
+    }
+    strcat(concatenated_path, file_name);
+    return concatenated_path;
+}
+
+
+char *get_file_name(char *path) {
+    char *path_copy = malloc(strlen(path) + 1);
+    strcpy(path_copy, path);
+    char *base_name = basename(path_copy);
+    char *to_return = malloc(strlen(base_name) + 1);
+    strcpy(to_return, base_name);
+    free(path_copy);
+    return to_return;
+}
+
+unsigned int get_size_dir_entry(unsigned int path_length) {
+    path_length += 8;
+    if (path_length % 4) {
+        path_length += (4 - path_length % 4);
+    }
+    return path_length;
+}
+
+int allocate_inode() {
+    int i = EXT2_GOOD_OLD_FIRST_INO;
+    // check available inodes
+    if (!gd->bg_free_inodes_count) {
+        return -1;
+    }
+    // find empty slot from bit map
+    while (i < sb->s_inodes_count && inode_is_taken(i)) {
+        i++;
+    }
+    if (i == sb->s_inodes_count) {
+        // should not reach here
+        return -1;
+    }
+    // set bit map, update count and initialize the inode
+    set_inode_bitmap(i);
+    memset(&(inode_table[i]), 0, sizeof(struct ext2_inode));
+    gd->bg_free_inodes_count--;
+    // inode starts at 1
+    return i+1;
+}
+
+int inode_is_taken(int index) {
+    // char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    return inode_bitmap[(unsigned int)sec] & mask;
+}
+
+void set_inode_bitmap(int index) {
+    // char *bitmap = (char *) (disk + gd->bg_inode_bitmap * EXT2_BLOCK_SIZE);
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    inode_bitmap[(unsigned int) sec] |= mask;
+}
+
+int block_taken(int index) {
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    return block_bitmap[(unsigned int) sec] & mask;
+}
+
+int allocate_data_block() {
+    // see if there are free blocks
+    if (!gd->bg_free_blocks_count) {
+        return -1;
+    }
+    // find free block
+    int i=0;
+    while (i < sb->s_blocks_count && block_taken(i)) {
+        i++;
+    }
+    if (i == sb->s_blocks_count) {
+        // should not be here
+        return -1;
+    }
+
+    // set bit map and update count
+    set_block_bitmap(i);
+    gd->bg_free_blocks_count--;
+    // block number starts at 1
+    return i+1;
+}
+
+void set_block_bitmap(int index) {
+    // char *bitmap = (char *) (disk + gd->bg_block_bitmap * EXT2_BLOCK_SIZE);
+    char sec = index / 8;
+    char mask = 1 << (index % 8);
+    block_bitmap[(unsigned int) sec] |= mask;
+}
+
+/*
+ * Return the inode at the given file path.
+ * If get_last flag is off, will return the last valid inode if the path
+ * is a valid new file path.
+ * If get_last flag is on, will only return inode if the path is valid. 
+ * Special case: when flag is false, and path is root, will return NULL.
+ * Will raise path invalid error if error occurred otherwise.
+ *
+ */
 struct ext2_inode *fetch_last(char* filepath, char * token, char get_last){
     // Fetch root, error if path does not include root
     int path_index = 0;
@@ -94,6 +321,12 @@ void show_error(int error, int exitcode){
             break;
         case EXT2RM:
             string = RMUSAGE;
+            break;
+        case EXT2LN:
+            string = LNUSAGE;
+            break;
+        case EXT2CP:
+            string = CPUSAGE;
             break;
         default:
             string = ERR;

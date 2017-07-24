@@ -13,12 +13,6 @@ readimagek : readimage_keegan.c
 readimagel : readimage_luke.c
 	gcc ${FLAGS} -o $@ $^
 
-ext2_cp : ext2_cp.c
-	gcc ${FLAGS} -o $@ $^
-    
-ext2_ln : ext2_cp.c
-	gcc ${FLAGS} -o $@ $^
-
 trace :
 	mkdir trace
 
@@ -29,6 +23,7 @@ trace/%.txt : %.img
   
 clean: cleantrc cleandumps
 	rm -f *.exe *.o *~ .*~
+	rm ext2_ln ext2_cp ext2_rm ext2_ls ext2_mkdir
 
 cleandumps:
 	rm -f *.stackdump
