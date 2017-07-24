@@ -640,3 +640,134 @@ void copy_dirent(struct ext2_dir_entry_2 *dir, struct ext2_dir_entry_2 *source, 
 int inode_number(struct ext2_inode * inode){
     return (int) (1 + ((char *)inode - (char *)inode_table)/sizeof(struct ext2_inode));
 }
+
+void remove_file(struct ext2_inode * pinode, struct ext2_inode * inode, char* token){
+   delete_inode(inode);
+   unsigned int block = remove_direntry(pinode, token);
+   if(block){
+       delete_block_from(inode, block);
+   }
+}
+
+void delete_inode(struct ext2_inode * inode){
+    if(!(--(inode->i_links_count))){
+        time_t raw_time;
+        time(&raw_time);
+        inode->i_dtime = raw_time;
+        flip_bit(inode_bitmap, inode_number(inode));
+        ++(sb->s_free_inodes_count);
+        ++(gd->bg_free_inodes_count);
+        delete_inode_blocks(inode);
+    }
+}
+
+unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
+    struct ext2_dir_entry_2 * direntry = find_dir(token, strlen(token), pinode);
+    unsigned int block = ((unsigned long)direntry - (unsigned long)disk)>> 10;
+    
+    char * dirptr = (char *)(disk + block * EXT2_BLOCK_SIZE);
+    struct ext2_dir_entry_2 * dir;
+  
+    // Cycle through dir entries in the block until get to before direntry
+    while(dirptr != (char *) direntry){
+        dir = (struct ext2_dir_entry_2 *) dirptr;
+        dirptr += dir->rec_len;
+    }
+    // Case 1: direntry is the first element
+    if(!dir){
+        // Case 1a: direntry is the only element, remove the entire block
+        if(direntry->rec_len == EXT2_BLOCK_SIZE){
+            flip_bit(block_bitmap, block);
+            ++(sb->s_free_blocks_count);
+            ++(gd->bg_free_blocks_count);
+            return block;
+        }
+        // Case 1b: direntry is not the only element, swap with the next element
+       else{
+            dir = direntry + direntry->rec_len;
+            copy_dirent(direntry, dir, dir->rec_len + direntry->rec_len);
+        }
+    }
+    // Case 2: direntry is a later element, extend the first element
+    else{
+        dir->rec_len += direntry->rec_len;
+    }
+    return 0;
+}
+
+void delete_block_from(struct ext2_inode *inode, unsigned int block){
+    unsigned int bptr;
+    for(int i = 0; i < 15; i++){
+        bptr = inode->i_block[i];
+        if(bptr){
+            if((i < 12) && (block == bptr)){
+                inode->i_block[i] = 0;
+            }else if (i >= 12){
+                delete_block_from_indir(i - 12, inode->i_block[i], block);
+            }
+        }
+    }
+}
+
+void delete_block_from_indir(int depth, int block, unsigned int delblock){
+    unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
+    if(depth == 0){
+        for(int i = 0; i < 15; i++){
+            if(inode[i] == delblock){
+                inode[i] = 0;
+            }
+        }
+    } else {
+        for(int i = 0; i < 15; i++){
+            if(inode[i]){
+                delete_block_from_indir(depth - 1, inode[i], delblock); 
+            }
+        }
+    }
+}
+
+
+void delete_inode_blocks(struct ext2_inode *inode){
+    unsigned int bptr;
+    for(int i = 0; i < 15; i++){
+        bptr = inode->i_block[i];
+        if(bptr){
+            if(i < 12){
+                flip_bit(block_bitmap, bptr);
+                ++(sb->s_free_blocks_count);
+                ++(gd->bg_free_blocks_count);
+            }else{
+                delete_inode_block_indir(i - 12, inode->i_block[i]);
+            }
+        }
+    }
+}
+
+void delete_inode_block_indir(int depth, int block){
+    unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
+    if(depth == 0){
+        for(int i = 0; i < 15; i++){
+            if(inode[i]){
+                flip_bit(block_bitmap, block);
+                ++(sb->s_free_blocks_count);
+                ++(gd->bg_free_blocks_count);
+            }
+        }
+    } else {
+        for(int i = 0; i < 15; i++){
+            if(inode[i]){
+                delete_inode_block_indir(depth - 1, inode[i]); 
+            }
+        }
+    }
+    flip_bit(block_bitmap, block);
+    ++(sb->s_free_blocks_count);
+    ++(gd->bg_free_blocks_count);
+}
+
+void flip_bit(unsigned char * bitmap, int index){
+    --index;
+    unsigned char shift = 7;
+    unsigned int pos = ~7;
+    bitmap[(index & pos) >> 3] &= ~(1 << (index & shift));
+}
