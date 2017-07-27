@@ -431,7 +431,7 @@ struct ext2_dir_entry_2 * find_dir_walk(int depth, int block, char * name, int s
 int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir){
     int true = size == dir->name_len;
     int index = 0;
-    while(index < size && true){
+    while(index < dir->name_len && true){
         true = true && (path[index] == dir->name[index]);
         ++index;
     }
@@ -645,6 +645,7 @@ void remove_file(struct ext2_inode * pinode, struct ext2_inode * inode, char* to
     if(!(--(inode->i_links_count))){
         delete_inode(inode);
     }
+        printf("curr%d, prev%d\n", inode_number(inode), inode_number(pinode));
     unsigned int block = remove_direntry(pinode, token);
     if(block){
         delete_block_from(inode, block);

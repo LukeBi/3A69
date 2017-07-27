@@ -37,13 +37,16 @@ void remove_item(struct ext2_inode *inode, struct ext2_inode *pinode, char flag,
     if(inode->i_mode & EXT2_S_IFDIR){
         if(flag){
             // Bonus case
-            struct ext2_inode * pdirinode = find_inode("..", 2, inode);
-            char* name = find_dir_winode(inode_number(inode), pdirinode)->name;
-            remove_dir(pdirinode, inode, name);
+            // struct ext2_inode * pdirinode = find_inode("..", 2, inode);
+            // char* name = find_dir_winode(inode_number(inode), pdirinode)->name;
+            printf("TOKEN: %s\n", token);
+            remove_dir(pinode, inode, token);
         }else{
             show_error(ISADIRECTORY, EISDIR);
         }
     }else{
+        printf("TOKEN: %s\n", token);
+        printf("curr%d, prev%d\n", inode_number(inode), inode_number(pinode));
         remove_file(pinode, inode, token);
     }
 }
@@ -83,8 +86,11 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
             printf("%.*s\n", dir->name_len, dir->name);
             if(strncmp(dir->name, ".", dir->name_len) && strncmp(dir->name, "..", dir->name_len)){
                 printf("strcmp\n");
-                printf("prev%d, curr%d\n", (dir->inode) - 1, inode_number(inode));
-                remove_item(&(inode_table[(dir->inode) - 1]), inode, TRUE, dir->name);
+                printf("curr%d, prev%d\n", (dir->inode), inode_number(inode));
+                char storetoken[dir->name_len + 1];
+                strncpy(storetoken, dir->name, dir->name_len);
+                storetoken[dir->name_len] = '\0';
+                remove_item(&(inode_table[(dir->inode) - 1]), inode, TRUE, storetoken);
                 printf("Remove item\n");
             }else{
                 printf("Remove direntry\n");
