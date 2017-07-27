@@ -106,14 +106,14 @@ void print_directory_block(struct ext2_inode *inode_table, int inum, unsigned ch
       case EXT2_FT_UNKNOWN:
         filetype = 'X';
         break;
+      case EXT2_FT_SYMLINK:
+        filetype = 'l';
+        break;
       case EXT2_FT_REG_FILE:
         filetype = 'f';
         break;
       case EXT2_FT_DIR:
         filetype = 'd';
-        break;
-      case EXT2_FT_SYMLINK:
-        filetype = 'l';
         break;
       default:
         filetype = 'X';
@@ -153,10 +153,10 @@ void print_inode(struct ext2_inode *inode_table, int inum, unsigned char* disk){
   printf("[%d] type: ", inum);
   if (EXT2_S_IFDIR & inode->i_mode){
     printf("d");
+  }else if(EXT2_S_IFLNK == inode->i_mode) {
+    printf("l");
   }else if (EXT2_S_IFREG & inode->i_mode){
     printf("f");
-  }else if(EXT2_S_IFLNK & inode->i_mode){
-    printf("l");
   }
   printf(" size: %d links: %d blocks: %d\n", inode->i_size, inode->i_links_count, inode->i_blocks);
   
