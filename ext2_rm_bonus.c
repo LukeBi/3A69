@@ -30,6 +30,20 @@ int main(int argc, char **argv) {
     char token[EXT2_NAME_LEN];
     struct ext2_inode * pinode = fetch_last(filepath, token, FALSE);
     struct ext2_inode * inode = fetch_last(filepath, token, TRUE);
+    if(inode->i_mode & EXT2_S_IFDIR){
+        if(inode_number(inode) == EXT2_ROOT_INO){
+            pinode = NULL;
+            strcpy(token, "/");
+        }else{
+            pinode = find_inode("..", 2, inode);
+            // Fetch correct token
+            // WALK THROUGH FETCH CORRECT INODE NUMBER
+            struct ext2_dir_entry_2 * dir = find_dir_winode(inode_number(inode), pinode);
+            strncpy(token, dir->name, dir->name_len);
+            token[dir->name_len] = '\0';
+            printf("%s\n", token);
+        }
+    }
     remove_item(inode, pinode, flag, token);
 }
 
@@ -37,8 +51,6 @@ void remove_item(struct ext2_inode *inode, struct ext2_inode *pinode, char flag,
     if(inode->i_mode & EXT2_S_IFDIR){
         if(flag){
             // Bonus case
-            // struct ext2_inode * pdirinode = find_inode("..", 2, inode);
-            // char* name = find_dir_winode(inode_number(inode), pdirinode)->name;
             printf("TOKEN: %s\n", token);
             remove_dir(pinode, inode, token);
         }else{
@@ -186,4 +198,5 @@ struct ext2_dir_entry_2 * find_dir_walk_winode(int depth, int block, int inodenu
     }
     return dir; 
 }
+
 
