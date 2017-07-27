@@ -478,7 +478,7 @@ void print_directory_block_entries(char flag, unsigned int block){
             if(flag){
                 printf("%.*s\n", dir->name_len, dir->name);
             }else{
-                if(strcmp(dir->name, ".") && strcmp(dir->name, "..")){
+                if(strncmp(dir->name, ".", dir->name_len) && strncmp(dir->name, "..", dir->name_len)){
                     printf("%.*s\n", dir->name_len, dir->name);
                 }
             }
@@ -640,49 +640,55 @@ int inode_number(struct ext2_inode * inode){
 }
 
 void remove_file(struct ext2_inode * pinode, struct ext2_inode * inode, char* token){
-   delete_inode(inode);
-   unsigned int block = remove_direntry(pinode, token);
-   if(block){
-       delete_block_from(inode, block);
-   }
+    if(!(--(inode->i_links_count))){
+        delete_inode(inode);
+    }
+    unsigned int block = remove_direntry(pinode, token);
+    if(block){
+        delete_block_from(inode, block);
+    }
 }
 
 void delete_inode(struct ext2_inode * inode){
-    if(!(--(inode->i_links_count))){
-        time_t raw_time;
-        time(&raw_time);
-        inode->i_dtime = raw_time;
-        flip_bit(inode_bitmap, inode_number(inode));
-        ++(sb->s_free_inodes_count);
-        ++(gd->bg_free_inodes_count);
-        delete_inode_blocks(inode);
-    }
+    time_t raw_time;
+    time(&raw_time);
+    inode->i_dtime = raw_time;
+    flip_bit(inode_bitmap, inode_number(inode));
+    ++(sb->s_free_inodes_count);
+    ++(gd->bg_free_inodes_count);
+    delete_inode_blocks(inode);
 }
 
 unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
     struct ext2_dir_entry_2 * direntry = find_dir(token, strlen(token), pinode);
     unsigned int block = ((unsigned long)direntry - (unsigned long)disk)>> 10;
-    
+    printf("remove_direntry block%u\n", block); 
     char * dirptr = (char *)(disk + block * EXT2_BLOCK_SIZE);
-    struct ext2_dir_entry_2 * dir;
+    struct ext2_dir_entry_2 * dir = NULL;
   
     // Cycle through dir entries in the block until get to before direntry
     while(dirptr != (char *) direntry){
         dir = (struct ext2_dir_entry_2 *) dirptr;
         dirptr += dir->rec_len;
     }
+    
+    printf("%.*s, %d\n", direntry->name_len, direntry->name, direntry->rec_len);
     // Case 1: direntry is the first element
     if(!dir){
         // Case 1a: direntry is the only element, remove the entire block
         if(direntry->rec_len == EXT2_BLOCK_SIZE){
+            printf("Case 1a\n");
             flip_bit(block_bitmap, block);
             ++(sb->s_free_blocks_count);
             ++(gd->bg_free_blocks_count);
+            direntry->inode = 0;
             return block;
         }
         // Case 1b: direntry is not the only element, swap with the next element
        else{
-            dir = direntry + direntry->rec_len;
+            printf("Case 1b\n");
+            dirptr = (char *)(direntry) + direntry->rec_len;
+            dir = (struct ext2_dir_entry_2 *) dirptr;
             copy_dirent(direntry, dir, dir->rec_len + direntry->rec_len);
         }
     }
