@@ -63,6 +63,7 @@ void remove_dir(struct ext2_inode * pinode, struct ext2_inode * inode, char* tok
     unsigned int bptr;
     for(int i = 0; i < 15; i++){
         bptr = inode->i_block[i];
+        printf("Loop: i = %d bptr = %d\n", i, bptr);
         if(bptr){
             if(i < 12){
                 remove_block_entries(inode, bptr);
@@ -71,12 +72,13 @@ void remove_dir(struct ext2_inode * pinode, struct ext2_inode * inode, char* tok
             }
         }
     }
+    printf("Delete inode\n");
     delete_inode(inode);
     if(pinode){
         unsigned int block = remove_direntry(pinode, token);
         --(pinode->i_links_count);
         if(block){
-            delete_block_from(inode, block);
+            delete_block_from(pinode, block);
         }
     }
     
@@ -92,22 +94,29 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
     while((1 << (block & shift)) & (block_bitmap[(block & pos) >> 3]))
     {
         if(dir->inode){
+            printf("While: Dirname = %.*s\n", dir->name_len, dir->name);
+            char storetoken[dir->name_len + 1];
+            strncpy(storetoken, dir->name, dir->name_len);
+            storetoken[dir->name_len] = '\0';
             if(strncmp(dir->name, ".", dir->name_len) && strncmp(dir->name, "..", dir->name_len)){
-                char storetoken[dir->name_len + 1];
-                strncpy(storetoken, dir->name, dir->name_len);
-                storetoken[dir->name_len] = '\0';
                 remove_item(&(inode_table[(dir->inode) - 1]), inode, TRUE, storetoken);
             }else{
-                int blk = remove_direntry(inode, dir->name);
+                int blk = remove_direntry(inode, storetoken);
                 if(blk){
+                    delete_block_from(inode, blk);
                 }
             }
         }else if (dir->rec_len == EXT2_BLOCK_SIZE){
+            printf("Flip bit\n");
             flip_bit(block_bitmap, block + 1);
             //++(sb->s_free_blocks_count);
             //++(gd->bg_free_blocks_count);
         }else{
-            remove_direntry(inode, dir->name);
+            printf("Remove dirent name_len = %d\n", dir->name_len);
+            char storetoken[dir->name_len + 1];
+            strncpy(storetoken, dir->name, dir->name_len);
+            storetoken[dir->name_len] = '\0';
+            remove_direntry(inode, storetoken);
         }
     }
 }

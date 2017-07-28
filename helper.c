@@ -431,6 +431,7 @@ struct ext2_dir_entry_2 * find_dir_walk(int depth, int block, char * name, int s
 int path_equal(char * path, int size, struct ext2_dir_entry_2 * dir){
     int true = size == dir->name_len;
     int index = 0;
+    printf("Path %.*s size %d, Dir %.*s size %d\n", size, path, size, dir->name_len, dir->name, dir->name_len);
     while(index < dir->name_len && true){
         true = true && (path[index] == dir->name[index]);
         ++index;
@@ -677,6 +678,7 @@ unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
     if(!dir){
         // Case 1a: direntry is the only element, remove the entire block
         if(direntry->rec_len == EXT2_BLOCK_SIZE){
+            printf("Case1a\n");
             flip_bit(block_bitmap, block);
             //++(sb->s_free_blocks_count);
             //++(gd->bg_free_blocks_count);
@@ -685,6 +687,7 @@ unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
         }
         // Case 1b: direntry is not the only element, swap with the next element
        else{
+            printf("Case1b\n");
             dirptr = (char *)(direntry) + direntry->rec_len;
             dir = (struct ext2_dir_entry_2 *) dirptr;
             copy_dirent(direntry, dir, dir->rec_len + direntry->rec_len);
@@ -692,6 +695,7 @@ unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
     }
     // Case 2: direntry is a later element, extend the first element
     else{
+        printf("Case2\n");
         dir->rec_len += direntry->rec_len;
     }
     return 0;
