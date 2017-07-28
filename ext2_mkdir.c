@@ -64,8 +64,8 @@ int main(int argc, char **argv) {
     inode->i_blocks += 2 * newblocks;
     inode->i_size += EXT2_BLOCK_SIZE * newblocks;
      
-    // Update superblock, One inode is used for new dir, add how many blocks have been used
-    sb->s_free_blocks_count -= newblocks;
+    // Update superblock, One inode is used for new dir, add how many blocks have been used, 1 block for . and ..
+    sb->s_free_blocks_count -= newblocks + 1;
     --(sb->s_free_inodes_count);
     gd->bg_free_blocks_count -= newblocks;
     --(gd->bg_free_inodes_count);
