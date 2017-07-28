@@ -103,8 +103,8 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
             }
         }else if (dir->rec_len == EXT2_BLOCK_SIZE){
             flip_bit(block_bitmap, block + 1);
-            ++(sb->s_free_blocks_count);
-            ++(gd->bg_free_blocks_count);
+            //++(sb->s_free_blocks_count);
+            //++(gd->bg_free_blocks_count);
         }else{
             remove_direntry(inode, dir->name);
         }
@@ -126,8 +126,8 @@ void remove_block_walk(struct ext2_inode * inode, int depth, int block){
             }
         }
         flip_bit(block_bitmap, block);
-        ++(sb->s_free_blocks_count);
-        ++(gd->bg_free_blocks_count);
+        //++(sb->s_free_blocks_count);
+        //++(gd->bg_free_blocks_count);
     }
 }
 struct ext2_dir_entry_2 * find_dir_winode(int inodenum, struct ext2_inode *inode){
