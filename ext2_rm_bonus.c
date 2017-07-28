@@ -87,14 +87,15 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
     char * dirptr = (char *)(disk + block * EXT2_BLOCK_SIZE);
     struct ext2_dir_entry_2 * dir = (struct ext2_dir_entry_2 *) dirptr;
     
-    printf("remove_block_entry block%u\n", block); 
     unsigned char shift = 7;
     unsigned int pos = ~7;
     --block;
+    printf("remove_block_entry block%d\n", block); 
+    printf("%d\t%d\n", (block_bitmap[(block & pos) >> 3]) , ((block & shift)));
     while((1 << (block & shift)) & (block_bitmap[(block & pos) >> 3]))
     {
         if(dir->inode){
-            printf("%d\n", dir->inode);
+            printf("inode:%d\n", dir->inode);
             printf("%.*s\n", dir->name_len, dir->name);
             if(strncmp(dir->name, ".", dir->name_len) && strncmp(dir->name, "..", dir->name_len)){
                 printf("strcmp\n");
@@ -106,10 +107,15 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
                 printf("Remove item\n");
             }else{
                 printf("Remove direntry\n");
-                if(remove_direntry(inode, dir->name)){
-                    
+                int blk = remove_direntry(inode, dir->name);
+                if(blk){
+                    printf("rmblk %d\n", blk);                
                 }
             }
+        }else if (dir->rec_len == EXT2_BLOCK_SIZE){
+            flip_bit(block_bitmap, block + 1);
+            ++(sb->s_free_blocks_count);
+            ++(gd->bg_free_blocks_count);
         }else{
             remove_direntry(inode, dir->name);
         }

@@ -680,7 +680,7 @@ unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
     if(!dir){
         // Case 1a: direntry is the only element, remove the entire block
         if(direntry->rec_len == EXT2_BLOCK_SIZE){
-            printf("Case 1a\n");
+            printf("Case 1a %d \n", block);
             flip_bit(block_bitmap, block);
             ++(sb->s_free_blocks_count);
             ++(gd->bg_free_blocks_count);
@@ -776,5 +776,6 @@ void flip_bit(unsigned char * bitmap, int index){
     --index;
     unsigned char shift = 7;
     unsigned int pos = ~7;
+    printf("flipping %d\n", index);
     bitmap[(index & pos) >> 3] &= ~(1 << (index & shift));
 }
