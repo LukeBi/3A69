@@ -76,9 +76,11 @@ void remove_dir(struct ext2_inode * pinode, struct ext2_inode * inode, char* tok
         }
     }
     delete_inode(inode);
-    unsigned int block = remove_direntry(pinode, token);
-    if(block){
-        delete_block_from(inode, block);
+    if(pinode){
+        unsigned int block = remove_direntry(pinode, token);
+        if(block){
+            delete_block_from(inode, block);
+        }
     }
     
 }
