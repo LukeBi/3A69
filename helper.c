@@ -647,7 +647,7 @@ void remove_file(struct ext2_inode * pinode, struct ext2_inode * inode, char* to
     }
     unsigned int block = remove_direntry(pinode, token);
     if(block){
-        delete_block_from(inode, block);
+        delete_block_from(pinode, block);
     }
 }
 
@@ -678,8 +678,6 @@ unsigned int remove_direntry(struct ext2_inode * pinode, char * token){
         // Case 1a: direntry is the only element, remove the entire block
         if(direntry->rec_len == EXT2_BLOCK_SIZE){
             flip_bit(block_bitmap, block);
-            //++(sb->s_free_blocks_count);
-            //++(gd->bg_free_blocks_count);
             direntry->inode = 0;
             return block;
         }

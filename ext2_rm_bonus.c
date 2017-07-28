@@ -75,11 +75,13 @@ void remove_dir(struct ext2_inode * pinode, struct ext2_inode * inode, char* tok
     if(pinode){
         unsigned int block = remove_direntry(pinode, token);
         --(pinode->i_links_count);
+        ++(sb->s_free_blocks_count);
+        ++(gd->bg_free_blocks_count);
         if(block){
             delete_block_from(pinode, block);
         }
     }
-    
+    --(gd->bg_used_dirs_count);
 }
 
 void remove_block_entries(struct ext2_inode * inode, unsigned int block){
@@ -105,8 +107,8 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
             }
         }else if (dir->rec_len == EXT2_BLOCK_SIZE){
             flip_bit(block_bitmap, block + 1);
-            //++(sb->s_free_blocks_count);
-            //++(gd->bg_free_blocks_count);
+            ++(sb->s_free_blocks_count);
+            ++(gd->bg_free_blocks_count);
         }else{
             char storetoken[dir->name_len + 1];
             strncpy(storetoken, dir->name, dir->name_len);
@@ -131,8 +133,8 @@ void remove_block_walk(struct ext2_inode * inode, int depth, int block){
             }
         }
         flip_bit(block_bitmap, block);
-        //++(sb->s_free_blocks_count);
-        //++(gd->bg_free_blocks_count);
+        ++(sb->s_free_blocks_count);
+        ++(gd->bg_free_blocks_count);
     }
 }
 struct ext2_dir_entry_2 * find_dir_winode(int inodenum, struct ext2_inode *inode){
