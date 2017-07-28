@@ -41,7 +41,6 @@ int main(int argc, char **argv) {
             struct ext2_dir_entry_2 * dir = find_dir_winode(inode_number(inode), pinode);
             strncpy(token, dir->name, dir->name_len);
             token[dir->name_len] = '\0';
-            printf("%s\n", token);
         }
     }
     remove_item(inode, pinode, flag, token);
@@ -51,14 +50,11 @@ void remove_item(struct ext2_inode *inode, struct ext2_inode *pinode, char flag,
     if(inode->i_mode & EXT2_S_IFDIR){
         if(flag){
             // Bonus case
-            printf("TOKEN: %s\n", token);
             remove_dir(pinode, inode, token);
         }else{
             show_error(ISADIRECTORY, EISDIR);
         }
     }else{
-        printf("TOKEN: %s\n", token);
-        printf("curr%d, prev%d\n", inode_number(inode), inode_number(pinode));
         remove_file(pinode, inode, token);
     }
 }
@@ -78,8 +74,9 @@ void remove_dir(struct ext2_inode * pinode, struct ext2_inode * inode, char* tok
     delete_inode(inode);
     if(pinode){
         unsigned int block = remove_direntry(pinode, token);
+        --(pinode->i_links_count);
         if(block){
-            delete_block_from(inode, block);
+            delete_block_from(pinode, block);
         }
     }
     
@@ -92,34 +89,29 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
     unsigned char shift = 7;
     unsigned int pos = ~7;
     --block;
-    printf("remove_block_entry block%d\n", block); 
-    printf("%d\t%d\n", (block_bitmap[(block & pos) >> 3]) , ((block & shift)));
     while((1 << (block & shift)) & (block_bitmap[(block & pos) >> 3]))
     {
         if(dir->inode){
-            printf("inode:%d\n", dir->inode);
-            printf("%.*s\n", dir->name_len, dir->name);
+            char storetoken[dir->name_len + 1];
+            strncpy(storetoken, dir->name, dir->name_len);
+            storetoken[dir->name_len] = '\0';
             if(strncmp(dir->name, ".", dir->name_len) && strncmp(dir->name, "..", dir->name_len)){
-                printf("strcmp\n");
-                printf("curr%d, prev%d\n", (dir->inode), inode_number(inode));
-                char storetoken[dir->name_len + 1];
-                strncpy(storetoken, dir->name, dir->name_len);
-                storetoken[dir->name_len] = '\0';
                 remove_item(&(inode_table[(dir->inode) - 1]), inode, TRUE, storetoken);
-                printf("Remove item\n");
             }else{
-                printf("Remove direntry\n");
-                int blk = remove_direntry(inode, dir->name);
+                int blk = remove_direntry(inode, storetoken);
                 if(blk){
-                    printf("rmblk %d\n", blk);                
+                    delete_block_from(inode, blk);
                 }
             }
         }else if (dir->rec_len == EXT2_BLOCK_SIZE){
             flip_bit(block_bitmap, block + 1);
-            ++(sb->s_free_blocks_count);
-            ++(gd->bg_free_blocks_count);
+            //++(sb->s_free_blocks_count);
+            //++(gd->bg_free_blocks_count);
         }else{
-            remove_direntry(inode, dir->name);
+            char storetoken[dir->name_len + 1];
+            strncpy(storetoken, dir->name, dir->name_len);
+            storetoken[dir->name_len] = '\0';
+            remove_direntry(inode, storetoken);
         }
     }
 }
@@ -139,8 +131,8 @@ void remove_block_walk(struct ext2_inode * inode, int depth, int block){
             }
         }
         flip_bit(block_bitmap, block);
-        ++(sb->s_free_blocks_count);
-        ++(gd->bg_free_blocks_count);
+        //++(sb->s_free_blocks_count);
+        //++(gd->bg_free_blocks_count);
     }
 }
 struct ext2_dir_entry_2 * find_dir_winode(int inodenum, struct ext2_inode *inode){
