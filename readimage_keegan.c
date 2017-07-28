@@ -75,7 +75,7 @@ void print_byte(char b){
 void print_directory_blocks(struct ext2_inode *inode_table, unsigned char* inode_bitmap, int size, unsigned char* disk){
   printf("Directory Blocks:\n");
   print_directory_block(inode_table, EXT2_ROOT_INO, disk);
-  for(int i = EXT2_GOOD_OLD_FIRST_INO; i < size; i++){
+  for(int i = EXT2_GOOD_OLD_FIRST_INO - 1; i < size; i++){
     unsigned char shift = 7;
     unsigned int pos = ~7;
     if( (1 << (i & shift)) & (inode_bitmap[(i & pos) >> 3])){
@@ -137,7 +137,7 @@ void print_bitmap(unsigned char * bits, int size){
 void print_inodes(struct ext2_inode *inode_table, unsigned char* inode_bitmap, int size, unsigned char* disk){
   printf("Inodes:\n");
   print_inode(inode_table, EXT2_ROOT_INO, disk);
-  for(int i = EXT2_GOOD_OLD_FIRST_INO; i < size; i++){
+  for(int i = EXT2_GOOD_OLD_FIRST_INO - 1; i < size; i++){
     unsigned char shift = 7;
     unsigned int pos = ~7;
     if( (1 << (i & shift)) & (inode_bitmap[(i & pos) >> 3])){
