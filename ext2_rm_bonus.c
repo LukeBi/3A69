@@ -119,13 +119,13 @@ void remove_block_entries(struct ext2_inode * inode, unsigned int block){
 void remove_block_walk(struct ext2_inode * inode, int depth, int block){
     unsigned int *inodeptr = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     if(depth == 0){
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inodeptr[i]){
                 remove_block_entries(inode, block);
             }
         }
     } else {
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inodeptr[i]){
                 remove_block_walk(inode, depth - 1, inodeptr[i]);
             }
@@ -178,7 +178,7 @@ struct ext2_dir_entry_2 * find_dir_walk_winode(int depth, int block, int inodenu
     struct ext2_dir_entry_2 * dir = NULL;
     unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     if(depth == 0){
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 dir = find_dir_block_winode(inodenum, inode[i]);
                 if(dir){
@@ -187,7 +187,7 @@ struct ext2_dir_entry_2 * find_dir_walk_winode(int depth, int block, int inodenu
             }
         }
     } else {
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 dir = find_dir_walk_winode(depth - 1, inode[i], inodenum);
                 if(dir){

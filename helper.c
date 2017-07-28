@@ -407,7 +407,7 @@ struct ext2_dir_entry_2 * find_dir_walk(int depth, int block, char * name, int s
     struct ext2_dir_entry_2 * dir = NULL;
     unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     if(depth == 0){
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 dir = find_dir_block(name, size, inode[i]);
                 if(dir){
@@ -416,7 +416,7 @@ struct ext2_dir_entry_2 * find_dir_walk(int depth, int block, char * name, int s
             }
         }
     } else {
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 dir = find_dir_walk(depth - 1, inode[i], name, size);
                 if(dir){
@@ -455,13 +455,13 @@ void print_directory_entries(struct ext2_inode *inode, char flag){
 void walk_directory_entries(int depth, int block, char flag){
     unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     if(depth == 0){
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 print_directory_block_entries(flag, inode[i]);
             }
         }
     } else {
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 walk_directory_entries(depth - 1, inode[i], flag); 
             }
@@ -587,7 +587,7 @@ int insert_entry_walk(int depth, int block, struct ext2_dir_entry_2 * insdir, in
     unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     int newblock = 0;
     if(depth == 0){
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 newblock = insert_entry_block(inode[i], insdir);
                 if(newblock){
@@ -603,13 +603,13 @@ int insert_entry_walk(int depth, int block, struct ext2_dir_entry_2 * insdir, in
             }
         }
     } else {
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(!inode[i]){
                 // If multilevel node not initialized, initialize it
                 inode[i] = find_free_bitmap(block_bitmap, bitmapsize);
                 *newblocks += 1;
                 unsigned int *nextinode = (unsigned int *)(disk + (inode[i] - 1) * EXT2_BLOCK_SIZE);
-                for(int j = 0; j < 15; j++){
+                for(int j = 0; j < EXT2_BLOCK_SIZE/sizeof(int); j++){
                     nextinode[j] = 0;
                 }
             }
@@ -714,13 +714,13 @@ void delete_block_from(struct ext2_inode *inode, unsigned int block){
 void delete_block_from_indir(int depth, int block, unsigned int delblock){
     unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     if(depth == 0){
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i] == delblock){
                 inode[i] = 0;
             }
         }
     } else {
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 delete_block_from_indir(depth - 1, inode[i], delblock); 
             }
@@ -748,7 +748,7 @@ void delete_inode_blocks(struct ext2_inode *inode){
 void delete_inode_block_indir(int depth, int block){
     unsigned int *inode = (unsigned int *)(disk + (block) * EXT2_BLOCK_SIZE);
     if(depth == 0){
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 flip_bit(block_bitmap, block);
                 ++(sb->s_free_blocks_count);
@@ -756,7 +756,7 @@ void delete_inode_block_indir(int depth, int block){
             }
         }
     } else {
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < EXT2_BLOCK_SIZE/sizeof(int); i++){
             if(inode[i]){
                 delete_inode_block_indir(depth - 1, inode[i]); 
             }
