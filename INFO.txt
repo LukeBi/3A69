@@ -7,3 +7,4 @@ Student 2:
 - Utorid: poonkeeg
 
 Bonus Implemented
+All programs need to compile with helper funcitons in helper.c and helper.h

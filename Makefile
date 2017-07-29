@@ -22,7 +22,7 @@ trace/%.txt : %.img
   
 clean: cleantrc cleandumps
 	rm -f *.exe *.o *~ .*~
-	rm ext2_ln ext2_cp ext2_rm ext2_ls ext2_mkdir
+	rm ext2_ln ext2_cp ext2_rm ext2_ls ext2_mkdir ext2_rm_bonus
 
 cleandumps:
 	rm -f *.stackdump
