@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
 			if (file_inode->i_mode & EXT2_S_IFDIR) {
 				// valid directory path on image
 				parent_dir_inode = file_inode;
-			} else if (disk_path[strlen(disk_path) != '/']) {
+			} else if (disk_path[strlen(disk_path) - 1] != '/') {
 				// valid file path
 				file_inode_number = inode_number(file_inode);
 				argument_inode = file_inode;
@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 				show_error(DOESNOTEXIST, ENOENT);
 			}
 		} else {
-			if (disk_path[strlen(disk_path) != '/']) {
+			if (disk_path[strlen(disk_path) - 1] != '/') {
 				// valid new file path
 				result_file_name_source = disk_path;
 			} else {
